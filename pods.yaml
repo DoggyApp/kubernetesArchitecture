@@ -1,0 +1,36 @@
+apiVersion: apps/v1 
+kind: Deployment
+metadata: 
+  name: webapp 
+spec: 
+  selector: 
+    matchLabels: 
+      app: webapp
+  replicas: 1 
+  template: 
+    metadata:
+      labels: 
+        app: webapp 
+    spec: 
+      containers: 
+      - name: webapp 
+        image: idanzigm/frontend-doggy:latest
+
+--- 
+apiVersion: apps/v1 
+kind: Deployment
+metadata: 
+  name: registry
+spec: 
+  selector: 
+    matchLabels: 
+      microsvc: registry
+  replicas: 1 
+  template: 
+    metadata:
+      labels: 
+        microsvc: registry
+    spec: 
+      containers: 
+      - name: registry 
+        image: idanzigm/registry-doggy:latest
