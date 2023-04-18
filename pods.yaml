@@ -6,15 +6,17 @@ spec:
   selector: 
     matchLabels: 
       app: webapp
-  replicas: 1 
+  replicas: 1
   template: 
     metadata:
       labels: 
         app: webapp 
     spec: 
+      terminationGracePeriodSeconds: 30
       containers: 
       - name: webapp 
-        image: idanzigm/frontend-doggy:latest
+        image: idanzigm/frontend-doggy:t4
+        imagePullPolicy: Always
 
 --- 
 apiVersion: apps/v1 
@@ -33,4 +35,5 @@ spec:
     spec: 
       containers: 
       - name: registry 
-        image: idanzigm/registry-doggy:latest
+        image: idanzigm/registry-doggy:t1
+        imagePullPolicy: Always
