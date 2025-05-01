@@ -33,10 +33,12 @@ metadata:
 spec:
   type: LoadBalancer
   ports:
-    - port: 80
+    - name: http # needs to have a name to work
+      port: 80
       targetPort: 80
       protocol: TCP
-    - port: 443
+    - name: https # needs to have a name to work
+      port: 443
       targetPort: 443
       protocol: TCP
   selector:
