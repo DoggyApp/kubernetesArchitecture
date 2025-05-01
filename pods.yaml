@@ -15,7 +15,7 @@ spec:
       terminationGracePeriodSeconds: 30
       containers: 
       - name: webapp 
-        image: idanzigm/frontend-doggy:t4
+        image: idanzigm/frontend-doggy:t5
         imagePullPolicy: Always
 
 --- 
