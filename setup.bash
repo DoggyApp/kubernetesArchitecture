@@ -10,7 +10,7 @@ kubectl apply -f /home/ec2-user/kubernetesArchitecture/ingress.yaml -n ingress-n
 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/services.yaml 
 
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.1/deploy/static/provider/cloud/deploy.yaml
+kubectl apply -k /home/ec2-user/kubernetesArchitecture/ingress/
 
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 

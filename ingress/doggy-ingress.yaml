@@ -2,24 +2,27 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: doggy-ingress
+  namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/rewrite-target: /$1 # This rewrites paths correctly
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
 spec:
   ingressClassName: nginx
   rules:
   - http:
       paths:
-      - path: /api/(.*) # Matches /api/*
-        pathType: Prefix
-        backend:
-          service:
-            name: registry-service
-            port:
-              number: 8080
-      - path: /(.*)
-        pathType: Prefix
-        backend:
-          service:
-            name: doggy-webapp
-            port:
-              number: 3000
+        # This matches anything starting with /api/, and captures what's after it
+        - path: /api(/|$)(.*)
+          pathType: Prefix
+          backend:
+            service:
+              name: registry-service
+              port:
+                number: 8080
+        # This matches everything else and does not rewrite it
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: doggy-webapp
+              port:
+                number: 3000
