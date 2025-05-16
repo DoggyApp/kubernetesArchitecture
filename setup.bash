@@ -27,16 +27,19 @@ helm repo update
 
 helm install --values /home/ec2-user/kubernetesArchitecture/loki/values.yaml loki grafana/loki \
     --namespace monitoring \
-    # --set promtail.enabled=false \
-    # --set grafana.enabled=false \
-    # --set fluent-bit.enabled=false
+    --create-namespace \
+    -f /home/ec2-user/kubernetesArchitecture/logging/loki-values.yaml
+
 
 helm upgrade --install promtail grafana/promtail \
     --namespace monitoring \
     --create-namespace \
-    --set config.clients[0].url="http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+    -f /home/ec2-user/kubernetesArchitecture/logging/promtail-values.yaml
 
-
+helm upgrade --install grafana grafana/grafana \
+    --namespace monitoring \
+    --create-namespace \
+    -f /home/ec2-user/kubernetesArchitecture/logging/grafana-values.yaml
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
