@@ -39,7 +39,7 @@ helm upgrade --install promtail grafana/promtail \
 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
     -n monitoring \
-    -f full-values.yaml
+    -f /home/ec2-user/kubernetesArchitecture/logging/grafana-values.yaml
 
 
 
