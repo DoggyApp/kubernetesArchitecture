@@ -25,4 +25,21 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-helm install loki grafana/loki-stack --namespace monitoring
+helm install --values /home/ec2-user/kubernetesArchitecture/loki/values loki grafana/loki \
+    --namespace monitoring \
+    # --set promtail.enabled=false \
+    # --set grafana.enabled=false \
+    # --set fluent-bit.enabled=false
+
+helm upgrade --install promtail grafana/promtail \
+    --namespace monitoring \
+    --create-namespace \
+    --set config.clients[0].url="http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+
+
+
+# kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+
+# kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+# aws ssm start-session --target i-0905bc6b077e8698f --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
