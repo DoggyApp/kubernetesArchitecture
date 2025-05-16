@@ -26,11 +26,9 @@ helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
 
-helm install --values /home/ec2-user/kubernetesArchitecture/loki/values.yaml loki grafana/loki \
-    --namespace monitoring \
-    --create-namespace \
-    -f /home/ec2-user/kubernetesArchitecture/logging/loki-values.yaml
-
+helm upgrade --install loki grafana/loki \
+  -n monitoring \
+  -f /home/ec2-user/kubernetesArchitecture/logging/loki-values.yaml
 
 helm upgrade --install promtail grafana/promtail \
     --namespace monitoring \
