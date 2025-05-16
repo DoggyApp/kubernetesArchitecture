@@ -25,7 +25,7 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-helm install --values /home/ec2-user/kubernetesArchitecture/loki/values loki grafana/loki \
+helm install --values /home/ec2-user/kubernetesArchitecture/loki/values.yaml loki grafana/loki \
     --namespace monitoring \
     # --set promtail.enabled=false \
     # --set grafana.enabled=false \
