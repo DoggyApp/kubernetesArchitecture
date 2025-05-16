@@ -12,37 +12,6 @@ singleBinary:
 persistence:
   enabled: false
 
-# Disable scalable components to avoid conflict
-read:
-  enabled: false
-
-write:
-  enabled: false
-
-backend:
-  enabled: false
-
-gateway:
-  enabled: false
-
-distributor:
-  enabled: false
-
-ingester:
-  enabled: false
-
-querier:
-  enabled: false
-
-queryFrontend:
-  enabled: false
-
-queryScheduler:
-  enabled: false
-  
-frontend:
-  enabled: false
-
 loki:
   auth_enabled: false
 
