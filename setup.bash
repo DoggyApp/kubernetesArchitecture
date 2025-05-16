@@ -25,6 +25,10 @@ helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
+helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+    -n monitoring \
+    -f full-values.yaml
+
 helm install --values /home/ec2-user/kubernetesArchitecture/loki/values.yaml loki grafana/loki \
     --namespace monitoring \
     --create-namespace \
@@ -36,10 +40,7 @@ helm upgrade --install promtail grafana/promtail \
     --create-namespace \
     -f /home/ec2-user/kubernetesArchitecture/logging/promtail-values.yaml
 
-helm upgrade --install grafana grafana/grafana \
-    --namespace monitoring \
-    --create-namespace \
-    -f /home/ec2-user/kubernetesArchitecture/logging/grafana-values.yaml
+
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
