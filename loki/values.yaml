@@ -9,8 +9,8 @@ singleBinary:
   replicas: 1
 
 # Make sure persistence is turned off (or configure if needed)
-persistence:
-  enabled: false
+  persistence:
+    enabled: false
 
 loki:
   auth_enabled: false
@@ -39,6 +39,10 @@ loki:
   storage:
     type: filesystem
 
+  rulerConfig:
+    storage:
+      type: local
+
   storage_config:
     filesystem:
       directory: /tmp/loki/chunks
@@ -47,3 +51,24 @@ loki:
     working_directory: /tmp/loki/compactor
     shared_store: filesystem
 
+monitoring:
+  alerts:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  dashboards:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  rules:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+  selfMonitoring:
+    enabled: false
+  serviceMonitor:
+    enabled: true
+    interval: 1m
+    labels:
+      release: kube-prometheus-stack
+    scrapeTimeout: 10s
