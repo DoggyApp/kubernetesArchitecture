@@ -37,8 +37,41 @@ loki:
     working_directory: /tmp/loki/compactor
     shared_store: filesystem
 
-singleBinary:
-  replicas: 1
-
-persistence:
-  enabled: false
+  # Enable single binary deployment mode
+  singleBinary:
+    replicas: 1
+  
+  # Make sure persistence is turned off (or configure if needed)
+  persistence:
+    enabled: false
+  
+  # Disable scalable components to avoid conflict
+  read:
+    enabled: false
+  
+  write:
+    enabled: false
+  
+  backend:
+    enabled: false
+  
+  gateway:
+    enabled: false
+  
+  distributor:
+    enabled: false
+  
+  ingester:
+    enabled: false
+  
+  querier:
+    enabled: false
+  
+  queryFrontend:
+    enabled: false
+  
+  queryScheduler:
+    enabled: false
+  
+  frontend:
+    enabled: false
