@@ -75,7 +75,6 @@ loki:
 
   compactor:
     working_directory: /tmp/loki/compactor
-    shared_store: filesystem
 
 monitoring:
   alerts:
