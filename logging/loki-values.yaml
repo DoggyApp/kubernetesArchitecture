@@ -65,8 +65,8 @@ loki:
   storage:
     type: filesystem
 
-  rulerConfig:
-    enabled: false
+  # rulerConfig:
+  #   enabled: false
 
   storage_config:
     filesystem:
