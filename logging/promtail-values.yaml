@@ -19,7 +19,6 @@ config:
     extraRelabelConfigs:
       - source_labels: [__meta_kubernetes_pod_node_name]
         target_label: __host__
-        extraRelabelConfigs:
       - source_labels: [__meta_kubernetes_namespace]
         regex: default
         action: keep
