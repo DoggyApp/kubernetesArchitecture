@@ -3,6 +3,8 @@
 
 aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0 --profile eks-cluster-admin
 
+kubectl label nodes doggy-app-eks-ng-monitoring workload=monitoring
+
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/pods.yaml 
 
 kubectl create namespace ingress-nginx
@@ -14,17 +16,26 @@ kubectl apply -k /home/ec2-user/kubernetesArchitecture/ingress/
 
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+helm repo add autoscaler https://kubernetes.github.io/autoscaler
+helm repo update
+
+helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
+  --namespace kube-system \
+  --create-namespace \
+  -f /home/ec2-user/kubernetesArchitecture/autoscaler/autoscaler-values.yaml
+
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
 
 kubectl create namespace monitoring
 
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack --namespace monitoring
+helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus-values.yaml
 
 
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
-
 
 helm upgrade --install loki grafana/loki \
   -n monitoring \

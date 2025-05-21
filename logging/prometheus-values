@@ -1,0 +1,9 @@
+prometheus:
+  prometheusSpec:
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "monitoring"
+        effect: "NoSchedule"
+    nodeSelector:
+      workload: monitoring

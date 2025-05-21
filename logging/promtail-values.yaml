@@ -1,4 +1,11 @@
-# promtail-values.yaml
+tolerations:
+  - key: "workload"
+    operator: "Equal"
+    value: "monitoring"
+    effect: "NoSchedule"
+
+nodeSelector:
+  workload: monitoring
 
 config:
   lokiAddress: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
