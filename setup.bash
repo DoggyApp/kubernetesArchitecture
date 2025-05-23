@@ -15,6 +15,8 @@ aws ssm put-parameter \
   --value "$OIDC_URL" \
   --overwrite
 
+envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml.template > /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml.yaml
+
 aws cloudformation deploy \
   --template-file /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml \
   --stack-name cluster-autoscaler-iam-role \

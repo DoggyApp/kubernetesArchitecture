@@ -1,11 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: IAM role for Cluster Autoscaler on EKS
 
-Parameters:
-  OIDCProviderUrl:
-    Type: AWS::SSM::Parameter::Value<String>
-    Default: /eks/doggy-app/oidc
-
 Resources:
   ClusterAutoscalerRole:
     Type: AWS::IAM::Role
@@ -16,16 +11,13 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/${OIDCProviderUrl}
+              Federated: arn:aws:iam::${AWS::AccountId}:oidc-provider/${$OIDC_URL}
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                Fn::Sub:
-                  - >
-                    {
-                      "${OIDCProviderUrl}:sub": "system:serviceaccount:kube-system:cluster-autoscaler"
-                    }
-                  - OIDCProviderUrl: !Ref OIDCProviderUrl
+                - "${$OIDC_URL}:sub" : "system:serviceaccount:kube-system:cluster-autoscaler"
+                - OIDCProviderUrl: ${$OIDC_URL}
+
       Policies:
         - PolicyName: ClusterAutoscalerPermissions
           PolicyDocument:
