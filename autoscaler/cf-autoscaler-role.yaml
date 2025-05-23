@@ -14,9 +14,9 @@ Resources:
               Federated: arn:aws:iam::109798190983:oidc-provider/$OIDC_URL
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
-              StringEquals:
-                - "$OIDC_URL:sub" : "system:serviceaccount:kube-system:cluster-autoscaler"
-                - OIDCProviderUrl: $OIDC_URL
+              StringEquals: 
+                $OIDC_URL:sub : system:serviceaccount:kube-system:cluster-autoscaler
+              OIDCProviderUrl: $OIDC_URL
 
       Policies:
         - PolicyName: ClusterAutoscalerPermissions
