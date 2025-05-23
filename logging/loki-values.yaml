@@ -1,11 +1,4 @@
-tolerations:
-  - key: "workload"
-    operator: "Equal"
-    value: "monitoring"
-    effect: "NoSchedule"
 
-nodeSelector:
-  workload: monitoring
 
 # This is a complete configuration to deploy Loki backed by the filesystem.
 # The index will be shipped to the storage via tsdb-shipper.
@@ -15,6 +8,16 @@ deploymentMode: SingleBinary
 # Enable single binary deployment mode
 singleBinary:
   replicas: 1
+
+# Make sure that loki is deployed to the monitoring node 
+  nodeSelector:
+    workload: monitoring
+
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "monitoring"
+      effect: "NoSchedule"
 
 # Make sure persistence is turned off (or configure if needed)
   persistence:
