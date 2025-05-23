@@ -71,14 +71,20 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 sudo yum install python3 -y
 pip3 install flask requests
 
-export BASTION_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+export BASTION_IP=$(aws ec2 describe-instances \
+  --filters "Name=tag:Name,Values=MgmtStack" "Name=instance-state-name,Values=running" \
+  --query "Reservations[].Instances[].PrivateIpAddress" \
+  --output text)
+
 envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml > /home/ec2-user/alert-manager-value-up.yaml
 
-pip install boto3
+pip3 install boto3
+
+python3 /home/ec2-user/kubernetesArchitecture/alerting/retrieve-open-ai-key.py
 
 export OPENAI_API_KEY=your_openai_api_key
 export LOKI_URL=http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/query_range
-python3 prometheus_webhook.py
+python3 /home/ec2-user/kubernetesArchitecture/alerting/prometheus_webhook.py
 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
