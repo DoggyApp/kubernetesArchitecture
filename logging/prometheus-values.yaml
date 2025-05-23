@@ -7,3 +7,4 @@ prometheus:
         effect: "NoSchedule"
     nodeSelector:
       workload: monitoring
+    maximumStartupDurationSeconds: 300
