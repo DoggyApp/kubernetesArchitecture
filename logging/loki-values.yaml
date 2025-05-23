@@ -20,6 +20,15 @@ singleBinary:
   persistence:
     enabled: false
 
+# Make sure there are ephemaral volume mounts for things like alert rules and ect. 
+  extraVolumes:
+    - name: tmp-loki
+      emptyDir: {}
+
+  extraVolumeMounts:
+    - name: tmp-loki
+      mountPath: /tmp/loki
+
 # Shut down all microservices so that the monolithic architecture can be used instead 
 read:
   replicas: 0
@@ -82,6 +91,15 @@ loki:
 
   compactor:
     working_directory: /tmp/loki/compactor
+
+  rulerConfig:
+    enabled: true
+    storage:
+      type: local
+      local:
+        directory: /tmp/loki/rules
+    rule_path: /tmp/loki/rules
+    alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring:9093
 
 monitoring:
   alerts:
