@@ -34,9 +34,8 @@ def get_secret():
     secret_string = get_secret_value_response['SecretString']
     secret_dict = json.loads(secret_string)
 
-    os.environ['OPENAI_API_KEY'] = secret_dict['openai-secret-key']
+    return secret_dict['openai-secret-key']
     
-    print("✅ OpenAI API key loaded into environment variable.")
 
 # use the function 
-get_secret()
+print(get_secret())
