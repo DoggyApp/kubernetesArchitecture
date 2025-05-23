@@ -48,7 +48,7 @@ kubectl create namespace monitoring
 
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus-values.yaml
+  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus/prometheus-values.yaml
 
 
 helm repo add grafana https://grafana.github.io/helm-charts
@@ -59,15 +59,14 @@ helm upgrade --install loki grafana/loki \
   -f /home/ec2-user/kubernetesArchitecture/logging/loki-values.yaml
 
 helm upgrade --install promtail grafana/promtail \
-    --namespace monitoring \
-    --create-namespace \
-    -f /home/ec2-user/kubernetesArchitecture/logging/promtail-values.yaml
+  --namespace monitoring \
+  --create-namespace \
+  -f /home/ec2-user/kubernetesArchitecture/logging/promtail-values.yaml
 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-    -n monitoring \
-    -f /home/ec2-user/kubernetesArchitecture/logging/grafana-values.yaml
-
-
+  -n monitoring \
+  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus/grafana-values.yaml \
+  --reuse-values
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
