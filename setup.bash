@@ -68,6 +68,22 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   -f /home/ec2-user/kubernetesArchitecture/logging/prometheus/grafana-values.yaml \
   --reuse-values
 
+sudo yum install python3 -y
+pip3 install flask requests
+
+export BASTION_IP=$(curl -s http://169.254.169.254/latest/meta-data/local-ipv4)
+envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml > /home/ec2-user/alert-manager-value-up.yaml
+
+pip install boto3
+
+export OPENAI_API_KEY=your_openai_api_key
+export LOKI_URL=http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/query_range
+python3 prometheus_webhook.py
+
+helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --set-file alertmanager.config=/home/ec2-user/alert-manager-value-up.yaml
+
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
 # kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
