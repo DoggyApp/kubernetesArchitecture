@@ -4,21 +4,15 @@
 aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0 --profile eks-cluster-admin
 
 
-OIDC_URL=$(aws eks describe-cluster \
+export OIDC_URL=$(aws eks describe-cluster \
   --name doggy-app-eks-cluster-0 \
   --query "cluster.identity.oidc.issuer" \
   --output text | sed 's|https://||')
 
-aws ssm put-parameter \
-  --name "/eks/doggy-app/oidc" \
-  --type String \
-  --value "$OIDC_URL" \
-  --overwrite
-
-envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml.template > /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml.yaml
+envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml > /home/ec2-user/cf-autoscaler-role-up.yaml
 
 aws cloudformation deploy \
-  --template-file /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml \
+  --template-file /home/ec2-user/cf-autoscaler-role-up.yaml \
   --stack-name cluster-autoscaler-iam-role \
   --capabilities CAPABILITY_NAMED_IAM
 
