@@ -1,11 +1,12 @@
-tolerations:
-  - key: "workload"
-    operator: "Equal"
-    value: "monitoring"
-    effect: "NoSchedule"
+#    don't need this configuration, promtail should run on all nodes so that it is able to aggregate logs from them 
+# tolerations:
+#   - key: "workload"
+#     operator: "Equal"
+#     value: "monitoring"
+#     effect: "NoSchedule"
 
-nodeSelector:
-  workload: monitoring
+# nodeSelector:
+#   workload: monitoring
 
 config:
   lokiAddress: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
