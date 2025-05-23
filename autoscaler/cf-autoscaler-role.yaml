@@ -20,9 +20,9 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                Fn::Sub: 
-                  - "${OidcSubKey}": "system:serviceaccount:kube-system:cluster-autoscaler"
-                  - OidcSubKey: !Sub "${OIDCProviderUrl}:sub"
+                Fn::Sub:
+                  - "${OIDCProviderUrl}:sub": "system:serviceaccount:kube-system:cluster-autoscaler"
+                  - OIDCProviderUrl: !Ref OIDCProviderUrl
       Policies:
         - PolicyName: ClusterAutoscalerPermissions
           PolicyDocument:
