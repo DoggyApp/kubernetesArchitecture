@@ -80,15 +80,20 @@ envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.y
 
 pip3 install boto3
 
-python3 /home/ec2-user/kubernetesArchitecture/alerting/retrieve-open-ai-key.py
 
-export OPENAI_API_KEY=your_openai_api_key
+
+export OPENAI_API_KEY=$(python3 /home/ec2-user/kubernetesArchitecture/alerting/retrieve-open-ai-key.py)
 export LOKI_URL=http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/query_range
-python3 /home/ec2-user/kubernetesArchitecture/alerting/prometheus_webhook.py
+python3 /home/ec2-user/kubernetesArchitecture/alerting/prometheus-webhook.py
 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   --set-file alertmanager.config=/home/ec2-user/alert-manager-value-up.yaml
+
+helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f alertmanager.config=/home/ec2-user/alert-manager-value-up.yaml\
+  --reuse-values
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
