@@ -39,7 +39,7 @@ helm repo update
 helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
   --namespace kube-system \
   --create-namespace \
-  -f /home/ec2-user/kubernetesArchitecture/autoscaler/autoscaler-values.yaml
+  -f /home/ec2-user//autoscaler-values-up.yaml
 
 helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
 helm repo update
