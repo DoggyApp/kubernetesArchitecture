@@ -1,0 +1,19 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-error-alerts
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: app-error-rules
+      rules:
+        - alert: HighErrorRate
+          expr: rate(http_requests_total{status=~"5.."}[1m]) > 0.1
+          for: 1m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High error rate detected in application"
+            description: "More than 10% of HTTP requests are failing with 5xx status codes over the last minute."
