@@ -45,12 +45,6 @@ extraVolumes:
     hostPath:
       path: /var/lib/docker/containers
 
-extraVolumeMounts:
-  - name: varlog
-    mountPath: /var/log
-  - name: containers
-    mountPath: /var/lib/docker/containers
-
 # Run as DaemonSet on all nodes
 daemonset:
   enabled: true
