@@ -20,6 +20,11 @@ aws cloudformation deploy \
   --stack-name cluster-autoscaler-iam-role \
   --capabilities CAPABILITY_NAMED_IAM
 
+AUTOSC_ROLE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name cluster-autoscaler-iam-role \
+  --query "Stacks[0].Outputs[?OutputKey=='ClusterAutoscalerRoleArn'].OutputValue" \
+  --output text)
+
 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/pods.yaml 
 

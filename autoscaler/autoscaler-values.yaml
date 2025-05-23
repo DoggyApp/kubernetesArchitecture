@@ -8,7 +8,7 @@ rbac:
     create: true
     name: cluster-autoscaler
     annotations:
-      eks.amazonaws.com/role-arn: arn:aws:iam::109798190983:role/cluster-autoscaler-role-doggyapp
+      eks.amazonaws.com/role-arn: arn:aws:iam::109798190983:role/cluster-autoscaler-role-doggyapp-ka
 
 extraArgs:
   balance-similar-node-groups: "true"

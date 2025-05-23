@@ -20,10 +20,9 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                Fn::Sub:
-                  - "${OIDCProviderUrl}:sub"
-                  - OIDCProviderUrl: !Ref OIDCProviderUrl
-                    sub: "system:serviceaccount:kube-system:cluster-autoscaler"
+                Fn::Sub: 
+                  - "${OidcSubKey}": "system:serviceaccount:kube-system:cluster-autoscaler"
+                  - OidcSubKey: !Sub "${OIDCProviderUrl}:sub"
       Policies:
         - PolicyName: ClusterAutoscalerPermissions
           PolicyDocument:
@@ -39,3 +38,10 @@ Resources:
                   - autoscaling:TerminateInstanceInAutoScalingGroup
                   - ec2:DescribeLaunchTemplateVersions
                 Resource: "*"
+
+Outputs:
+  ClusterAutoscalerRoleArn:
+    Description: ARN of the Cluster Autoscaler IAM Role
+    Value: !GetAtt ClusterAutoscalerRole.Arn
+    Export:
+      Name: ClusterAutoscalerRoleArn
