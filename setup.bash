@@ -3,12 +3,27 @@
 
 aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0 --profile eks-cluster-admin
 
-kubectl label nodes doggy-app-eks-ng-monitoring workload=monitoring
+
+OIDC_URL=$(aws eks describe-cluster \
+  --name doggy-app-eks-cluster-0 \
+  --query "cluster.identity.oidc.issuer" \
+  --output text | sed 's|https://||')
+
+aws ssm put-parameter \
+  --name "/eks/doggy-app/oidc" \
+  --type String \
+  --value "$OIDC_URL" \
+  --overwrite
+
+aws cloudformation deploy \
+  --template-file /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml \
+  --stack-name cluster-autoscaler-iam-role \
+  --capabilities CAPABILITY_NAMED_IAM
+
 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/pods.yaml 
 
 kubectl create namespace ingress-nginx
-kubectl apply -f /home/ec2-user/kubernetesArchitecture/ingress.yaml -n ingress-nginx
 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/services.yaml 
 
