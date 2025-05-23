@@ -46,7 +46,7 @@ helm repo update
 
 kubectl create namespace monitoring
 
-helm install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /home/ec2-user/kubernetesArchitecture/logging/prometheus-values.yaml
 

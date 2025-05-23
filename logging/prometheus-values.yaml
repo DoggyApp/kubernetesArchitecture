@@ -8,3 +8,40 @@ prometheus:
     nodeSelector:
       workload: monitoring
     maximumStartupDurationSeconds: 300
+
+alertmanager:
+  alertmanagerSpec:
+    nodeSelector:
+      workload: monitoring
+    tolerations:
+      - key: "workload"
+        operator: "Equal"
+        value: "monitoring"
+        effect: "NoSchedule"
+
+grafana:
+  nodeSelector:
+    workload: monitoring
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "monitoring"
+      effect: "NoSchedule"
+
+kubeStateMetrics:
+  nodeSelector:
+    workload: monitoring
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "monitoring"
+      effect: "NoSchedule"
+
+nodeExporter:
+  nodeSelector:
+    workload: monitoring
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "monitoring"
+      effect: "NoSchedule"
