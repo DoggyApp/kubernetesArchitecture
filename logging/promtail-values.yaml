@@ -42,6 +42,12 @@ extraVolumes:
     hostPath:
       path: /var/log
 
+# Mount the volumes that promtail is scraping 
+extraVolumeMounts:
+  - name: varlog
+    mountPath: /var/log
+    readOnly: true
+
 # Run as DaemonSet on all nodes
 daemonset:
   enabled: true
