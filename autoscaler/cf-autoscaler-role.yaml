@@ -21,7 +21,10 @@ Resources:
             Condition:
               StringEquals:
                 Fn::Sub:
-                  - "${OIDCProviderUrl}:sub": "system:serviceaccount:kube-system:cluster-autoscaler"
+                  - >
+                    {
+                      "${OIDCProviderUrl}:sub": "system:serviceaccount:kube-system:cluster-autoscaler"
+                    }
                   - OIDCProviderUrl: !Ref OIDCProviderUrl
       Policies:
         - PolicyName: ClusterAutoscalerPermissions
