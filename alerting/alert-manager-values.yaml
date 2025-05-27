@@ -15,7 +15,7 @@ alertmanager:
     receivers:
       - name: 'webhook'
         webhook_configs:
-          - url: 'http://alert-webhook.monitoring.svc.cluster.local'
+          - url: 'http://alert-analyzer-service.monitoring.svc.cluster.local'
     inhibit_rules:
       - source_matchers: ['severity = critical']
         target_matchers: ['severity = warning|info']

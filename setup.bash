@@ -47,7 +47,7 @@ kubectl apply -k /home/ec2-user/kubernetesArchitecture/ingress/
 LB_HOST=$(kubectl get ingress doggy-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 kubectl create configmap frontend-config \
-  --from-literal=LOAD_BALANCER_URL="https://$LB_HOST" \
+  --from-literal=LOAD_BALANCER_URL="http://$LB_HOST" \
   --dry-run=client -o yaml | kubectl apply -f - 
 
 # create pods and services for application 
@@ -94,7 +94,7 @@ kubectl apply -f /home/ec2-user/kubernetesArchitecture/alerting/alert-pod.yaml
 # upgrade alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f /home/ec2-user/alert-manager-values-up.yaml\
+  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values-up.yaml\
   --reuse-values
 
 
@@ -149,4 +149,4 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 # kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 
-# aws ssm start-session --target i-0020efb79913823b0 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+# aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
