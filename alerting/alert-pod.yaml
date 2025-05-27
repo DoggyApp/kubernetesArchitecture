@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-analyzer
+  namespace: monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-analyzer
+  template:
+    metadata:
+      labels:
+        app: alert-analyzer
+    spec:
+      containers:
+        - name: alert-analyzer
+          image: idanzigm/alert-analyzer:latest
+          ports:
+            - containerPort: 5000
+          env:
+            - name: LOKI_URL
+              value: "http://loki.monitoring.svc:3100/loki/api/v1/query_range"
+            - name: SNS_TOPIC_ARN
+              value: "arn:aws:sns:us-east-1:109798190983:doggy-alerts:780078be-0b8b-47e8-8c4a-9778a06d5bb2"
+          # Add AWS IAM role if using IRSA (optional)
+          # env:
+          #   - name: AWS_REGION
+          #     value: "us-east-1"
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+      tolerations:
+        - key: "monitoring"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      nodeSelector:
+        workload: "monitoring"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-analyzer-service
+  namespace: monitoring
+spec:
+  selector:
+    app: alert-analyzer
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 5000

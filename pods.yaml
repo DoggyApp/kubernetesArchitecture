@@ -14,9 +14,22 @@ spec:
     spec: 
       terminationGracePeriodSeconds: 30
       containers: 
-      - name: webapp 
-        image: idanzigm/frontend-doggy:latest
-        imagePullPolicy: Always
+        - name: webapp 
+          image: idanzigm/frontend-doggy:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          env:
+            - name: LOAD_BALANCER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: LOAD_BALANCER_URL
 
 --- 
 apiVersion: apps/v1 
@@ -34,6 +47,13 @@ spec:
         microsvc: registry
     spec: 
       containers: 
-      - name: registry 
-        image: idanzigm/registry-doggy:t1
-        imagePullPolicy: Always
+        - name: registry 
+          image: idanzigm/registry-doggy:t1
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
