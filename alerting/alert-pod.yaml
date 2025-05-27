@@ -4,7 +4,6 @@ metadata:
   name: alert-analyzer
   namespace: monitoring
 spec:
-  serviceAccountName: alert-analyzer # connects pod to iam role in service account type 
   replicas: 1
   selector:
     matchLabels:
@@ -14,6 +13,7 @@ spec:
       labels:
         app: alert-analyzer
     spec:
+      serviceAccount: alert-analyzer # connects pod to iam role in service account type 
       containers:
         - name: alert-analyzer
           image: idanzigm/alert-analyzer:latest
