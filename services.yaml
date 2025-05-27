@@ -7,8 +7,8 @@ spec:
     app: webapp
   ports: 
     - name: http
-      port: 3000
-      targetPort: 3000
+      port: 80
+      targetPort: 80
   type: ClusterIP
 
 ---

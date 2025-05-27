@@ -37,7 +37,7 @@ helm repo update
 helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
   --namespace kube-system \
   --create-namespace \
-  -f /home/ec2-user//autoscaler-values-up.yaml
+  -f /home/ec2-user/autoscaler-values-up.yaml
 
 # create ingress 
 kubectl create namespace ingress-nginx
@@ -45,9 +45,10 @@ kubectl apply -k /home/ec2-user/kubernetesArchitecture/ingress/
 
 # get host address and create a config map from it 
 LB_HOST=$(kubectl get ingress doggy-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+
 kubectl create configmap frontend-config \
   --from-literal=LOAD_BALANCER_URL="https://$LB_HOST" \
-  --dry-run=client -o yaml | kubectl apply -f 
+  --dry-run=client -o yaml | kubectl apply -f - 
 
 # create pods and services for application 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/pods.yaml 
