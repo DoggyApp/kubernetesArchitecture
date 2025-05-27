@@ -9,6 +9,11 @@ aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --profile eks-
 # install helm 
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+# Associate OIDC Provider 
+eksctl utils associate-iam-oidc-provider \
+  --cluster $CLUSTER_NAME \
+  --approve
+
 # Call OIDC provider and create IAM role necessary for autoscaler 
 export OIDC_URL=$(aws eks describe-cluster \
   --name $CLUSTER_NAME \
