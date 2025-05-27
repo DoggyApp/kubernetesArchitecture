@@ -94,7 +94,7 @@ kubectl apply -f /home/ec2-user/kubernetesArchitecture/alerting/alert-pod.yaml
 # upgrade alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values-up.yaml\
+  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml\
   --reuse-values
 
 

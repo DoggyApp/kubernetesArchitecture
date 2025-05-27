@@ -35,9 +35,9 @@ spec:
               cpu: "500m"
               memory: "512Mi"
       tolerations:
-        - key: "monitoring"
+        - key: "workload"
           operator: "Equal"
-          value: "true"
+          value: "monitoring"
           effect: "NoSchedule"
       nodeSelector:
         workload: "monitoring"
