@@ -1,0 +1,34 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: IAM role for Cluster Autoscaler and secrets manager access on EKS
+
+Resources:
+  ClusterAlerterRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: doggy-alert-analyzer-role
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: arn:aws:iam::109798190983:oidc-provider/$OIDC_URL
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals: 
+                "$OIDC_URL:sub" : "system:serviceaccount:monitoring:alert-analyzer"
+      Policies:
+        - PolicyName: WebhookSecretCaller
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - secretsmanager::GetSecretValue
+                Resource: "arn:aws:secretsmanager:us-east-1:109798190983:secret:openai-secret-key-1CsjqW"
+
+Outputs:
+  ClusterAlerterRoleArn:
+    Description: ARN of the Cluster Alerter IAM Role
+    Value: !GetAtt ClusterAlerterRole.Arn
+    Export:
+      Name: ClusterAlerterRoleArn

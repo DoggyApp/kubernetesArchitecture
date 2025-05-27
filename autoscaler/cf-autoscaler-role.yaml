@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: IAM role for Cluster Autoscaler on EKS
+Description: IAM role for Cluster Autoscaler and secrets manager access on EKS
 
 Resources:
   ClusterAutoscalerRole:
@@ -32,6 +32,9 @@ Resources:
                   - autoscaling:TerminateInstanceInAutoScalingGroup
                   - ec2:DescribeLaunchTemplateVersions
                 Resource: "*"
+
+
+
 
 Outputs:
   ClusterAutoscalerRoleArn:

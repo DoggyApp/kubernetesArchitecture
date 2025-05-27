@@ -88,61 +88,32 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 # =================================================================================
 
+# User previously Call OIDC provider and create IAM role necessary for alert analyzer 
+
+envsubst < /home/ec2-user/kubernetesArchitecture/alerting/cf-alert-hook-role.yaml > /home/ec2-user/cf-alert-hook-role-up.yaml
+
+aws cloudformation deploy \
+  --template-file /home/ec2-user/cf-alert-hook-role-up.yaml \
+  --stack-name alert-hook-iam-role \
+  --capabilities CAPABILITY_NAMED_IAM
+
+# call Alerter role ARN and populate it into the alert service account 
+export ALERTER_ROLE_ARN=$(aws cloudformation describe-stacks \
+  --stack-name alert-hook-iam-role \
+  --query "Stacks[0].Outputs[?OutputKey=='ClusterAlerterRoleArn'].OutputValue" \
+  --output text)
+
+envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-service-account.yaml > /home/ec2-user/alert-service-account-up.yaml
+
 # Deply alerting pod 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/alerting/alert-pod.yaml 
 
-# upgrade alert manager with needed config 
+
+# update alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml\
   --reuse-values
-
-
-# sudo yum install python3 -y
-# pip3 install flask requests
-
-# export BASTION_IP=$(aws ec2 describe-instances \
-#   --filters "Name=tag:Name,Values=MgmtStack" "Name=instance-state-name,Values=running" \
-#   --query "Reservations[].Instances[].PrivateIpAddress" \
-#   --output text)
-
-# envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml > /home/ec2-user/alert-manager-values-up.yaml
-
-# pip3 install boto3
-
-
-
-# export OPENAI_API_KEY=$(python3 /home/ec2-user/kubernetesArchitecture/alerting/retrieve-open-ai-key.py)
-# export LOKI_URL=http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/query_range
-
-# pip3 install gunicorn
-# gunicorn -w 4 -b 0.0.0.0:5000 /home/ec2-user/kubernetesArchitecture/alerting/prometheus_webhook:app --daemon
-
-# MANAGER_SG_ID=$(aws ec2 describe-security-groups \
-#   --filters "Name=tag:Name,Values=doggy-stack-*-EC2-manager-sg" \
-#   --query "SecurityGroups[0].GroupId" \
-#   --output text)
-
-# NODE_INSTANCE_ID=$(aws ec2 describe-instances \
-#   --filters \
-#     "Name=tag:eks:nodegroup-name,Values=${NODEGROUP_NAME}" \
-#     "Name=instance-state-name,Values=running" \
-#   --query "Reservations[0].Instances[0].InstanceId" \
-#   --output text)
-
-# NODE_SG_IDS=$(aws ec2 describe-instances \
-#   --instance-ids $NODE_INSTANCE_ID \
-#   --query "Reservations[0].Instances[0].SecurityGroups[].GroupId" \
-#   --output text)
-
-# for SG in $NODE_SG_IDS; do
-#   aws ec2 authorize-security-group-ingress \
-#     --group-id "$MANAGER_SG_ID" \
-#     --protocol tcp \
-#     --port 5000 \
-#     --source-group "$SG"
-# done
-
 
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
