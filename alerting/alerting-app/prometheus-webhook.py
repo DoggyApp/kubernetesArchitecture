@@ -44,7 +44,13 @@ OPENAI_API_KEY = get_secret()
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:109798190983:doggy-alerts:780078be-0b8b-47e8-8c4a-9778a06d5bb2"
 
+print(LOKI_URL)
+print(OPENAI_API_KEY)
+print(OPENAI_API_URL)
+print(SNS_TOPIC_ARN)
+
 def query_loki(start, end, query):
+    print("inside query loki")
     params = {
         "start": start,
         "end": end,
@@ -59,6 +65,7 @@ def query_loki(start, end, query):
         return {}
 
 def ask_openai(question):
+    print("inside ask open ai")
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json"
@@ -79,19 +86,24 @@ def ask_openai(question):
 
 
 def notify_user(subject, message):
+    print("inside notify user")
     sns = boto3.client("sns", region_name="us-east-1")
-    sns.publish(
-        TopicArn=SNS_TOPIC_ARN,
-        Subject=subject,
-        Message=message
-    )
+    try:
+        sns.publish(
+            TopicArn=SNS_TOPIC_ARN,
+            Subject=subject,
+            Message=message
+        )
     except ClientError as e:
         print(f"Failed to publish to SNS: {e}")
+        traceback.print_exc()
 
 @app.route("/webhook", methods=["POST"])
 def handle_alert():
+    print("hook running")
     alert_data = request.json
     for alert in alert_data.get("alerts", []):
+        print("just recieved alert")
         starts_at = alert.get("startsAt")
         labels = alert.get("labels", {})
         namespace = labels.get("namespace", "default")
@@ -106,8 +118,13 @@ def handle_alert():
         end_ns = int(end_dt.timestamp() * 1e9)
 
         # Loki query
+        print(f"namespace={namespace}, pod={pod}")
         log_query = f'{{namespace="{namespace}", pod="{pod}"}}'
+        print("loki query")
+        print(log_query)
         loki_response = query_loki(start_ns, end_ns, log_query)
+        print("loki response")
+        print(loki_response)
 
         log_lines = []
         for stream in loki_response.get("data", {}).get("result", []):
@@ -115,8 +132,10 @@ def handle_alert():
                 log_lines.append(entry[1])
 
         combined_logs = "\n".join(log_lines[:20])
+        print("combined logs")
+        print(combined_logs)
         question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
-
+        print(question)
         ai_response = ask_openai(question)
         answer = ai_response["choices"][0]["message"]["content"]
 
