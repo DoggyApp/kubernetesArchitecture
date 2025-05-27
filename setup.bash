@@ -105,9 +105,10 @@ export ALERTER_ROLE_ARN=$(aws cloudformation describe-stacks \
 
 envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-service-account.yaml > /home/ec2-user/alert-service-account-up.yaml
 
+kubectl apply -f /home/ec2-user/alert-service-account-up.yaml
+
 # Deply alerting pod 
 kubectl apply -f /home/ec2-user/kubernetesArchitecture/alerting/alert-pod.yaml 
-
 
 # update alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
