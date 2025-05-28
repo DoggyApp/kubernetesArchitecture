@@ -39,12 +39,12 @@ metadata:
 spec: 
   selector: 
     matchLabels: 
-      microsvc: registry
+      app: registry
   replicas: 1 
   template: 
     metadata:
       labels: 
-        microsvc: registry
+        app: registry
     spec: 
       containers: 
         - name: registry 
