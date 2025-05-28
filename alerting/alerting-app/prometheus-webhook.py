@@ -5,11 +5,26 @@ import datetime
 import os
 import boto3
 import json
+
 from botocore.exceptions import ClientError
 
 app = Flask(__name__)
 
+# good practice to set debug to false explicitely 
+app.config["DEBUG"] = False
 
+# Connect Flask's logger to Gunicorn's log output
+import logging
+import sys
+gunicorn_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(gunicorn_logger.level)
+
+def get_openai_key():
+    if not hasattr(get_openai_key, "cached_key"):
+        app.logger.info("Fetching OpenAI secret from Secrets Manager...")
+        get_openai_key.cached_key = get_secret()
+    return get_openai_key.cached_key
 
 def get_secret():
 
@@ -30,6 +45,7 @@ def get_secret():
     except ClientError as e:
         # For a list of exceptions thrown, see
         # https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
+        app.logger.error(f"Error fetching secret: {e}")
         raise e
 
     # The secret string is a JSON-formatted string
@@ -40,17 +56,15 @@ def get_secret():
     
 # Loki and OpenAI config
 LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
-OPENAI_API_KEY = get_secret()
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:109798190983:doggy-alerts:780078be-0b8b-47e8-8c4a-9778a06d5bb2"
 
-print(LOKI_URL)
-print(OPENAI_API_KEY)
-print(OPENAI_API_URL)
-print(SNS_TOPIC_ARN)
+app.logger.info(LOKI_URL)
+app.logger.info(OPENAI_API_URL)
+app.logger.info(SNS_TOPIC_ARN)
 
 def query_loki(start, end, query):
-    print("inside query loki")
+    app.logger.info("inside query loki")
     params = {
         "start": start,
         "end": end,
@@ -61,17 +75,17 @@ def query_loki(start, end, query):
         return response.json()
 
     except requests.RequestException as e:
-        print(f"Error querying Loki: {e}")
+        app.logger.info(f"Error querying Loki: {e}")
         return {}
 
 def ask_openai(question):
-    print("inside ask open ai")
+    app.logger.info("inside ask open ai")
     headers = {
-        "Authorization": f"Bearer {OPENAI_API_KEY}",
+        "Authorization": f"Bearer {get_openai_key()}",
         "Content-Type": "application/json"
     }
     data = {
-        "model": "gpt-4",
+        "model": "gpt-3.5-turbo",
         "messages": [
             {"role": "system", "content": "You are an expert in debugging Kubernetes applications."},
             {"role": "user", "content": question}
@@ -79,14 +93,15 @@ def ask_openai(question):
     }
     try: 
         response = requests.post(OPENAI_API_URL, headers=headers, json=data)
+        response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        print(f"Error calling OpenAI: {e}")
+        app.logger.info(f"Error calling OpenAI: {e}")
         return {"choices": [{"message": {"content": "Error querying OpenAI"}}]}
 
 
 def notify_user(subject, message):
-    print("inside notify user")
+    app.logger.info("inside notify user")
     sns = boto3.client("sns", region_name="us-east-1")
     try:
         sns.publish(
@@ -94,56 +109,68 @@ def notify_user(subject, message):
             Subject=subject,
             Message=message
         )
+        app.logger.info(f"Successfully published to SNS: {response}")
     except ClientError as e:
-        print(f"Failed to publish to SNS: {e}")
-        traceback.print_exc()
+        app.logger.info(f"Failed to publish to SNS: {e}")
+        # traceback.print_exc()
 
 @app.route("/webhook", methods=["POST"])
 def handle_alert():
-    print("hook running")
-    alert_data = request.json
-    for alert in alert_data.get("alerts", []):
-        print("just recieved alert")
-        starts_at = alert.get("startsAt")
-        labels = alert.get("labels", {})
-        namespace = labels.get("namespace", "default")
-        pod = labels.get("pod", "")
-        severity = labels.get("severity", "unknown")
-        alertname = labels.get("alertname", "Alert")
+    try:
+        app.logger.info("hook running")
+        alert_data = request.json
+        for alert in alert_data.get("alerts", []):
+            app.logger.info("just recieved alert")
+            starts_at = alert.get("startsAt")
+            labels = alert.get("labels", {})
+            namespace = labels.get("namespace", "default")
+            pod = labels.get("pod", "")
+            severity = labels.get("severity", "unknown")
+            alertname = labels.get("alertname", "Alert")
 
-        # Convert times
-        start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-        end_dt = start_dt + datetime.timedelta(minutes=5)
-        start_ns = int(start_dt.timestamp() * 1e9)
-        end_ns = int(end_dt.timestamp() * 1e9)
+            # Convert times
+            start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
+            end_dt = start_dt + datetime.timedelta(minutes=5)
+            start_ns = int(start_dt.timestamp() * 1e9)
+            end_ns = int(end_dt.timestamp() * 1e9)
 
-        # Loki query
-        print(f"namespace={namespace}, pod={pod}")
-        log_query = f'{{namespace="{namespace}", pod="{pod}"}}'
-        print("loki query")
-        print(log_query)
-        loki_response = query_loki(start_ns, end_ns, log_query)
-        print("loki response")
-        print(loki_response)
+            # Loki query
+            app.logger.info(f"namespace={namespace}, pod={pod}")
+            log_query = f'{{namespace="{namespace}", pod="{pod}"}}'
+            app.logger.info("loki query")
+            app.logger.info(log_query)
+            loki_response = query_loki(start_ns, end_ns, log_query)
+            app.logger.info("loki response")
+            app.logger.info(loki_response)
 
-        log_lines = []
-        for stream in loki_response.get("data", {}).get("result", []):
-            for entry in stream.get("values", []):
-                log_lines.append(entry[1])
+            log_lines = []
+            for stream in loki_response.get("data", {}).get("result", []):
+                for entry in stream.get("values", []):
+                    log_lines.append(entry[1])
 
-        combined_logs = "\n".join(log_lines[:20])
-        print("combined logs")
-        print(combined_logs)
-        question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
-        print(question)
-        ai_response = ask_openai(question)
-        answer = ai_response["choices"][0]["message"]["content"]
+            combined_logs = "\n".join(log_lines[:20])
+            app.logger.info("combined logs")
+            app.logger.info(f"Using first {len(log_lines[:20])} log lines for OpenAI query.")
+            app.logger.info(combined_logs)
+            question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
+            app.logger.info(question)
+            ai_response = ask_openai(question)
 
-        print(f"AI Response:\n{answer}")
+            if "choices" in ai_response:
+                answer = ai_response["choices"][0]["message"]["content"]
+                app.logger.info(f"AI Response:\n{answer}")
+                notify_user(alertname, answer)
+                return jsonify({"status": "received"}), 200
+            else:
+                error_msg = ai_response.get("error", {}).get("message", "Unknown error from OpenAI")
+                return jsonify({"error": error_msg}), 500
+        
+    except Exception as e:
+        app.logger.exception("Unhandled exception while processing alert")
+        return jsonify({"error": str(e)}), 500
+        
 
-        notify_user(alertname, answer)
-
-    return jsonify({"status": "received"}), 200
+    
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
