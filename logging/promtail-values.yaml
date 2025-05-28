@@ -12,17 +12,31 @@ config:
   lokiAddress: http://loki-gateway.monitoring.svc.cluster.local/loki/api/v1/push
 
   snippets:
-    pipelineStages:
-      - docker: {}
-      - cri: {}
     extraScrapeConfigs: |
-      - job_name: kubernetes-pods
+      - job_name: static-varlogs
         static_configs:
           - targets:
               - localhost
             labels:
               job: varlogs
               __path__: /var/log/containers/*.log
+      - job_name: k8s-pod-logs
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_container_name]
+            target_label: container
+          - source_labels: [__meta_kubernetes_pod_name]
+            target_label: pod
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: namespace
+          - source_labels: [__meta_kubernetes_node_name]
+            target_label: node
+          - action: replace
+            source_labels: [__meta_kubernetes_pod_uid]
+            target_label: __path__
+            replacement: /var/log/pods/*/$1/*.log
+
 
     extraRelabelConfigs:
       - source_labels: [__meta_kubernetes_pod_node_name]
