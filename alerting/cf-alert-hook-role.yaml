@@ -27,7 +27,7 @@ Resources:
                 Resource: "arn:aws:secretsmanager:us-east-1:109798190983:secret:doggy-openai-key-scrbTx"
               - Effect: Allow
                 Action:
-                  - SNS:Publish
+                  - sns:Publish
                 Resource: "arn:aws:sns:us-east-1:109798190983:doggy-alerts"
 
 Outputs:
