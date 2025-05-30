@@ -59,15 +59,15 @@ def get_secret():
     # The secret string is a JSON-formatted string
     secret_string = get_secret_value_response['SecretString']
     secret_dict = json.loads(secret_string)
-    app.logger.error("openai secret key")
-    app.logger.error(secret_dict)
+    app.logger.info("openai secret key")
+    app.logger.info(secret_dict)
 
     return secret_dict['doggy-openai-key']
     
 # Loki and OpenAI config
 LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:109798190983:doggy-alerts:780078be-0b8b-47e8-8c4a-9778a06d5bb2"
+SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:109798190983:doggy-alerts"
 
 app.logger.info(LOKI_URL)
 app.logger.info(OPENAI_API_URL)
@@ -104,7 +104,7 @@ def ask_openai(question):
                 {"role": "user", "content": question}
             ]
         )
-        return completion.choices[0].message
+        return completion.choices[0].message.content
 
     except RateLimitError as e:
         wait = 2 + random.uniform(0, 1)
@@ -222,11 +222,12 @@ def handle_alert():
             question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
             app.logger.info(question)
             ai_response = ask_openai(question)
-            
-            if isinstance(ai_response, str):
-                app.logger.info(f"AI Response:\n{ai_response}")
+            app.logger.info(f"AI Response:\n{ai_response}")
+
+            if isinstance(ai_response, str) and not ai_response.startswith("Error:"):
+                print("inside succesful if block about to notify user")
                 notify_user(alertname, ai_response)
-                return jsonify({"status": "received"}), 200
+                return jsonify({"status": "recieved"}), 200
             else:
                 # ai_response is an error string or failure notice
                 error_msg = str(ai_response)
