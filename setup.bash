@@ -135,14 +135,14 @@ curl -X POST http://localhost:5000/webhook   -H 'Content-Type: application/json'
             "labels": {
               "alertname": "TestAlert",
               "namespace": "default",
-              "pod": "webapp",
+              "pod": "webapp-876dbbd66-9cfrt",
               "severity": "critical"
             },
-            "startsAt": "2024-05-27T10:00:00Z"
+            "startsAt": "2025-05-30T10:00:00.000Z"
           }
         ]
       }'
 
 # kubectl -n monitoring port-forward svc/alert-analyzer-service 8080:80
 
-# aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8080"],"localPortNumber":["5000"]}
+aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8080"],"localPortNumber":["5000"]}'

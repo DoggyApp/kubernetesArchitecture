@@ -24,7 +24,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "arn:aws:secretsmanager:us-east-1:109798190983:secret:openai-secret-key-1CsjqW"
+                Resource: "arn:aws:secretsmanager:us-east-1:109798190983:secret:doggy-openai-key-scrbTx"
 
 Outputs:
   ClusterAlerterRoleArn:

@@ -5,6 +5,11 @@ import datetime
 import os
 import boto3
 import json
+from openai import OpenAI
+import time
+import random
+from openai import OpenAI, OpenAIError, RateLimitError, APIConnectionError, APIStatusError, Timeout
+
 
 from botocore.exceptions import ClientError
 
@@ -21,14 +26,17 @@ app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
 
 def get_openai_key():
+    app.logger.info("inside get openAI key")
     if not hasattr(get_openai_key, "cached_key"):
-        app.logger.info("Fetching OpenAI secret from Secrets Manager...")
+        app.logger.info("Fetching OpenAI secret from Secrets Manager")
         get_openai_key.cached_key = get_secret()
+    print("back inside get_openai_key() and printing final return value")
+    print(get_openai_key.cached_key)
     return get_openai_key.cached_key
 
 def get_secret():
-
-    secret_name = "openai-secret-key"
+    app.logger.info("inside get secret")
+    secret_name = "doggy-openai-key"
     region_name = "us-east-1"
 
     # Create a Secrets Manager client
@@ -51,8 +59,10 @@ def get_secret():
     # The secret string is a JSON-formatted string
     secret_string = get_secret_value_response['SecretString']
     secret_dict = json.loads(secret_string)
+    app.logger.error("openai secret key")
+    app.logger.error(secret_dict)
 
-    return secret_dict['openai-secret-key']
+    return secret_dict['doggy-openai-key']
     
 # Loki and OpenAI config
 LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
@@ -80,24 +90,67 @@ def query_loki(start, end, query):
 
 def ask_openai(question):
     app.logger.info("inside ask open ai")
-    headers = {
-        "Authorization": f"Bearer {get_openai_key()}",
-        "Content-Type": "application/json"
-    }
-    data = {
-        "model": "gpt-3.5-turbo",
-        "messages": [
-            {"role": "system", "content": "You are an expert in debugging Kubernetes applications."},
-            {"role": "user", "content": question}
-        ]
-    }
-    try: 
-        response = requests.post(OPENAI_API_URL, headers=headers, json=data)
-        response.raise_for_status()
-        return response.json()
-    except requests.RequestException as e:
-        app.logger.info(f"Error calling OpenAI: {e}")
-        return {"choices": [{"message": {"content": "Error querying OpenAI"}}]}
+
+    client = OpenAI(
+        api_key=get_openai_key()
+    )
+
+    try:
+        completion = client.chat.completions.create(
+            model="gpt-4o-mini", 
+            store=True,
+            messages=[
+                {"role": "system", "content": "You are an expert in debugging Kubernetes applications."},
+                {"role": "user", "content": question}
+            ]
+        )
+        return completion.choices[0].message
+
+    except RateLimitError as e:
+        wait = 2 + random.uniform(0, 1)
+        app.logger.warning(f"Rate limit hit. Retrying in {wait:.2f}s...")
+        time.sleep(wait)
+        return {"error": "Rate limit exceeded, try again later."}
+
+    except Timeout as e:
+        app.logger.warning("Request to OpenAI timed out.")
+        return {"error": "Timeout occurred while contacting OpenAI."}
+
+    except APIConnectionError as e:
+        app.logger.error(f"API connection error: {e}")
+        return {"error": "API connection error"}
+
+    except APIStatusError as e:
+        app.logger.error(f"API returned non-200 status: {e.status_code}")
+        return {"error": f"API error: status {e.status_code}"}
+
+    except OpenAIError as e:
+        app.logger.error(f"Unhandled OpenAI error: {e}")
+        return {"error": "Unhandled OpenAI error"}
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {e}")
+        return {"error": "Unexpected error occurred"}
+
+    return {"error": "Failed to get a response from OpenAI"}
+    # headers = {
+    #     "Authorization": f"Bearer {get_openai_key()}", 
+    #     "Content-Type": "application/json"
+    # }
+    # data = {
+    #     "model": "gpt-3.5-turbo",
+    #     "messages": [
+    #         {"role": "system", "content": "You are an expert in debugging Kubernetes applications."},
+    #         {"role": "user", "content": question}
+    #     ]
+    # }
+     
+        # response = requests.post(OPENAI_API_URL, headers=headers, json=data)
+        # response.raise_for_status()
+        # return response.json()
+    # except requests.RequestException as e:
+    #     app.logger.info(f"Error calling OpenAI: {e}")
+    #     return {"choices": [{"message": {"content": "Error querying OpenAI"}}]}
 
 
 def notify_user(subject, message):
@@ -113,6 +166,17 @@ def notify_user(subject, message):
     except ClientError as e:
         app.logger.info(f"Failed to publish to SNS: {e}")
         # traceback.print_exc()
+    
+# def get_dummy_logs():
+#     now = datetime.datetime.utcnow()
+#     logs = [
+#         f"{now.isoformat()} [INFO] Starting user authentication process for user_id=1234",
+#         f"{now.isoformat()} [ERROR] Failed to write session to Redis for user_id=1234: timeout",
+#         f"{now.isoformat()} [WARN] Falling back to local session cache",
+#         f"{now.isoformat()} [DEBUG] GET /dashboard returned 200 in 85ms",
+#         f"{now.isoformat()} [ERROR] Unexpected null value in response from billing service",
+#     ]
+#     return "\n".join(logs)
 
 @app.route("/webhook", methods=["POST"])
 def handle_alert():
@@ -129,8 +193,11 @@ def handle_alert():
             alertname = labels.get("alertname", "Alert")
 
             # Convert times
-            start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=datetime.timezone.utc)
-            end_dt = start_dt + datetime.timedelta(minutes=5)
+            app.logger.info(starts_at)
+            start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc) # need to catch this it changes from needing milisec to not 
+            app.logger.info(start_dt)
+            end_dt = start_dt + datetime.timedelta(days=10)
+            
             start_ns = int(start_dt.timestamp() * 1e9)
             end_ns = int(end_dt.timestamp() * 1e9)
 
@@ -155,14 +222,14 @@ def handle_alert():
             question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
             app.logger.info(question)
             ai_response = ask_openai(question)
-
-            if "choices" in ai_response:
-                answer = ai_response["choices"][0]["message"]["content"]
-                app.logger.info(f"AI Response:\n{answer}")
-                notify_user(alertname, answer)
+            
+            if isinstance(ai_response, str):
+                app.logger.info(f"AI Response:\n{ai_response}")
+                notify_user(alertname, ai_response)
                 return jsonify({"status": "received"}), 200
             else:
-                error_msg = ai_response.get("error", {}).get("message", "Unknown error from OpenAI")
+                # ai_response is an error string or failure notice
+                error_msg = str(ai_response)
                 return jsonify({"error": error_msg}), 500
         
     except Exception as e:
