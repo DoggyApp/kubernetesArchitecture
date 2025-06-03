@@ -157,7 +157,7 @@ def notify_user(subject, message):
     app.logger.info("inside notify user")
     sns = boto3.client("sns", region_name="us-east-1")
     try:
-        sns.publish(
+        response = sns.publish(
             TopicArn=SNS_TOPIC_ARN,
             Subject=subject,
             Message=message
