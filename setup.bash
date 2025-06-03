@@ -121,6 +121,10 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml\
   --reuse-values
 
+helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-rules.yaml\
+  --reuse-values
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 

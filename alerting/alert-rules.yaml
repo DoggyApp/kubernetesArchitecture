@@ -21,3 +21,19 @@ spec:
             summary: "Unhandled exception in Angular frontend"
             description: |
               Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} logged an error in container {{ $labels.container }} within the last minute.
+    - name: springboot-backend-group
+      rules:
+        - alert: SpringBootExceptionDetected
+          expr: |
+            sum by (namespace, pod, container) (
+              count_over_time(
+                {namespace="default", container="registry"} |= "Exception" [1m]
+              )
+            ) > 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Spring Boot backend exception detected"
+            description: |
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} logged an exception in container {{ $labels.container }} within the last minute.
