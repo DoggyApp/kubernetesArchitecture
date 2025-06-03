@@ -1,0 +1,23 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: angular-error-alerts
+  namespace: monitoring
+spec:
+  groups:
+    - name: angular-error-group
+      rules:
+        - alert: AngularFrontendException
+          expr: |
+            sum by (namespace, pod, container) (
+              count_over_time(
+                {namespace="default", container="webapp"} |= "Error:" [1m]
+              )
+            ) > 0
+          for: 30s
+          labels:
+            severity: critical
+          annotations:
+            summary: "Unhandled exception in Angular frontend"
+            description: |
+              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} logged an error in container {{ $labels.container }} within the last minute.
