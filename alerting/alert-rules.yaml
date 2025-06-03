@@ -1,5 +1,5 @@
-apiVersion: monitoring.coreos.com/v1
-kind: PrometheusRule
+apiVersion: loki.grafana.com/v1
+kind: AlertingRule
 metadata:
   name: angular-error-alerts
   namespace: monitoring
