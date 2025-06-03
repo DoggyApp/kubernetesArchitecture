@@ -1,11 +1,11 @@
 apiVersion: loki.grafana.com/v1
 kind: AlertingRule
 metadata:
-  name: angular-error-alerts
+  name: frontend-backend-errors
   namespace: monitoring
 spec:
   groups:
-    - name: angular-error-group
+    - name: angular-error-alerts
       rules:
         - alert: AngularFrontendException
           expr: |
@@ -18,12 +18,13 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "Unhandled exception in Angular frontend"
+            summary: "Unhandled Angular frontend exception"
             description: |
-              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} logged an error in container {{ $labels.container }} within the last minute.
-    - name: springboot-backend-group
+              Error log detected in pod {{ $labels.pod }} (namespace {{ $labels.namespace }}).
+
+    - name: springboot-error-alerts
       rules:
-        - alert: SpringBootExceptionDetected
+        - alert: SpringBootBackendException
           expr: |
             sum by (namespace, pod, container) (
               count_over_time(
@@ -34,6 +35,6 @@ spec:
           labels:
             severity: critical
           annotations:
-            summary: "Spring Boot backend exception detected"
+            summary: "Spring Boot backend exception"
             description: |
-              Pod {{ $labels.pod }} in namespace {{ $labels.namespace }} logged an exception in container {{ $labels.container }} within the last minute.
+              Exception detected in pod {{ $labels.pod }} (namespace {{ $labels.namespace }}).
