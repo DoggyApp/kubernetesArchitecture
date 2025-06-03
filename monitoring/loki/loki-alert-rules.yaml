@@ -1,0 +1,25 @@
+groups:
+  - name: angular-frontend-errors
+    rules:
+      - alert: AngularFrontendError
+        expr: |
+          count_over_time({container="webapp"} |= "Error:" [1m]) > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Unhandled error in Angular frontend"
+          description: "Detected 'Error:' log entries from container 'webapp' in the last minute."
+
+  - name: springboot-backend-errors
+    rules:
+      - alert: SpringBootExceptionDetected
+        expr: |
+          count_over_time({container="registry"} |= "Exception" [1m]) > 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Spring Boot backend exception detected"
+          description: "Detected exception log entries from container 'registry' in the last minute."
+

@@ -20,10 +20,10 @@ export OIDC_URL=$(aws eks describe-cluster \
   --query "cluster.identity.oidc.issuer" \
   --output text | sed 's|https://||')
 
-envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml > /home/ec2-user/cf-autoscaler-role-up.yaml
+envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/cf-autoscaler-role.yaml > /home/ec2-user/config/cf-autoscaler-role-up.yaml
 
 aws cloudformation deploy \
-  --template-file /home/ec2-user/cf-autoscaler-role-up.yaml \
+  --template-file /home/ec2-user/config/cf-autoscaler-role-up.yaml \
   --stack-name cluster-autoscaler-iam-role \
   --capabilities CAPABILITY_NAMED_IAM
 
@@ -33,7 +33,7 @@ export AUTOSC_ROLE_ARN=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='ClusterAutoscalerRoleArn'].OutputValue" \
   --output text)
 
-envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/autoscaler-values.yaml > /home/ec2-user/autoscaler-values-up.yaml
+envsubst < /home/ec2-user/kubernetesArchitecture/autoscaler/autoscaler-values.yaml > /home/ec2-user/config/autoscaler-values-up.yaml
 
 # install the autoscaler repo and install the autoscaler 
 helm repo add autoscaler https://kubernetes.github.io/autoscaler
@@ -42,7 +42,7 @@ helm repo update
 helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
   --namespace kube-system \
   --create-namespace \
-  -f /home/ec2-user/autoscaler-values-up.yaml
+  -f /home/ec2-user/config/autoscaler-values-up.yaml
 
 # create ingress 
 kubectl create namespace ingress-nginx
@@ -56,8 +56,8 @@ kubectl create configmap frontend-config \
   --dry-run=client -o yaml | kubectl apply -f - 
 
 # create pods and services for application 
-kubectl apply -f /home/ec2-user/kubernetesArchitecture/pods.yaml 
-kubectl apply -f /home/ec2-user/kubernetesArchitecture/services.yaml 
+kubectl apply -f /home/ec2-user/kubernetesArchitecture/default/pods.yaml 
+kubectl apply -f /home/ec2-user/kubernetesArchitecture/default/services.yaml 
 
 # ==========================================================================
 
@@ -70,35 +70,40 @@ helm repo update
 
 helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus/prometheus-values.yaml
+  -f /home/ec2-user/kubernetesArchitecture/monitoring/prometheus/prometheus-values.yaml
 
 # install Loki and promtail 
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
+kubectl create configmap loki-rule-config \
+  --from-file=/home/ec2-user/kubernetesArchitecture/monitoring/loki/loki-alert-rules.yaml \
+  -n monitoring \
+  --dry-run=client -o yaml | kubectl apply -f -
+
 helm upgrade --install loki grafana/loki \
   -n monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/logging/loki-values.yaml
+  -f /home/ec2-user/kubernetesArchitecture/monitoring/loki/loki-values.yaml
 
 helm upgrade --install promtail grafana/promtail \
   --namespace monitoring \
   --create-namespace \
-  -f /home/ec2-user/kubernetesArchitecture/logging/promtail-values.yaml
+  -f /home/ec2-user/kubernetesArchitecture/monitoring/promtail/promtail-values.yaml
 
 # update grafana in the prometheus stack so that it adds the source for loki and grafana 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   -n monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/logging/prometheus/grafana-values.yaml \
+  -f /home/ec2-user/kubernetesArchitecture/monitoring/prometheus/grafana-values.yaml \
   --reuse-values
 
 # =================================================================================
 
 # User previously Call OIDC provider and create IAM role necessary for alert analyzer 
 
-envsubst < /home/ec2-user/kubernetesArchitecture/alerting/cf-alert-hook-role.yaml > /home/ec2-user/cf-alert-hook-role-up.yaml
+envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/cf-alert-hook-role.yaml > /home/ec2-user/config/cf-alert-hook-role-up.yaml
 
 aws cloudformation deploy \
-  --template-file /home/ec2-user/cf-alert-hook-role-up.yaml \
+  --template-file /home/ec2-user/config/cf-alert-hook-role-up.yaml \
   --stack-name alert-hook-iam-role \
   --capabilities CAPABILITY_NAMED_IAM
 
@@ -108,23 +113,20 @@ export ALERTER_ROLE_ARN=$(aws cloudformation describe-stacks \
   --query "Stacks[0].Outputs[?OutputKey=='ClusterAlerterRoleArn'].OutputValue" \
   --output text)
 
-envsubst < /home/ec2-user/kubernetesArchitecture/alerting/alert-service-account.yaml > /home/ec2-user/alert-service-account-up.yaml
+envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/alert-service-account.yaml > /home/ec2-user/config/alert-service-account-up.yaml
 
-kubectl apply -f /home/ec2-user/alert-service-account-up.yaml
+kubectl apply -f /home/ec2-user/config/alert-service-account-up.yaml
 
 # Deply alerting pod 
-kubectl apply -f /home/ec2-user/kubernetesArchitecture/alerting/alert-pod.yaml 
+kubectl apply -f /home/ec2-user/kubernetesArchitecture/monitoring/alerting/alert-pod.yaml 
 
 # update alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-manager-values.yaml\
+  -f /home/ec2-user/kubernetesArchitecture/monitoring/prometheus/alert-manager-values.yaml\
   --reuse-values
 
-helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  -f /home/ec2-user/kubernetesArchitecture/alerting/alert-rules.yaml\
-  --reuse-values
+
 
 # kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
