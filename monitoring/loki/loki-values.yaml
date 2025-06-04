@@ -25,14 +25,18 @@ singleBinary:
 
 # Make sure there are ephemaral volume mounts for things like alert rules and ect. 
   extraVolumes:
-    - name: tmp-loki
+    - name: loki-rules
       configMap:
         name: loki-rule-config
+    - name: tmp-loki
+      emptyDir: {}
 
   extraVolumeMounts:
-    - name: tmp-loki
+    - name: loki-rules
       mountPath: /tmp/loki/rules
       readOnly: true
+    - name: tmp-loki
+      mountPath: /tmp/loki
 
 # Shut down all microservices so that the monolithic architecture can be used instead 
 read:
