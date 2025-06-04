@@ -30,7 +30,7 @@ singleBinary:
         name: loki-rule-config
 
   extraVolumeMounts:
-    - name: loki-rules
+    - name: tmp-loki
       mountPath: /tmp/loki/rules
       readOnly: true
 
@@ -104,6 +104,17 @@ loki:
         directory: /tmp/loki/rules
     rule_path: /tmp/loki/rules
     alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring:9093
+
+ruler:
+  enabled: true
+  nodeSelector:
+    workload: monitoring
+  tolerations:
+    - key: "workload"
+      operator: "Equal"
+      value: "monitoring"
+      effect: "NoSchedule"
+
 
 monitoring:
   alerts:
