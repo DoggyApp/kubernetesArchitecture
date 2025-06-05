@@ -48,7 +48,7 @@ spec:
     spec: 
       containers: 
         - name: registry 
-          image: idanzigm/registry-doggy:t1
+          image: idanzigm/registry-doggy:latest
           imagePullPolicy: Always
           resources:
             requests:
