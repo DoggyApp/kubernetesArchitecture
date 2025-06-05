@@ -129,30 +129,30 @@ loki:
           configMap:
             name: loki-alerting-rules
 
-ruler:
-  enabled: true
-  nodeSelector:
-    workload: monitoring
-  tolerations:
-    - key: "workload"
-      operator: "Equal"
-      value: "monitoring"
-      effect: "NoSchedule"
+# ruler:
+#   enabled: true
+#   nodeSelector:
+#     workload: monitoring
+#   tolerations:
+#     - key: "workload"
+#       operator: "Equal"
+#       value: "monitoring"
+#       effect: "NoSchedule"
 
-  extraVolumes:
-    - name: loki-rules
-      configMap:
-        name: loki-rule-config
+#   extraVolumes:
+#     - name: loki-rules
+#       configMap:
+#         name: loki-rule-config
 
-  extraVolumeMounts:
-    - name: loki-rules
-      mountPath: /tmp/loki/rules
-      readOnly: true
+#   extraVolumeMounts:
+#     - name: loki-rules
+#       mountPath: /tmp/loki/rules
+#       readOnly: true
 
-  extraConfigMounts: 
-    - name: loki-rules
-      mountPath: /tmp/loki/rules
-      readOnly: true
+#   extraConfigMounts: 
+#     - name: loki-rules
+#       mountPath: /tmp/loki/rules
+#       readOnly: true
 
 
 monitoring:
