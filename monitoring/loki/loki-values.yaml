@@ -120,14 +120,14 @@ loki:
     enable_alertmanager_v2: true
     alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring:9093
 
-    read: 
-      extraVolumeMounts:
-        - name: rules
-          mountPath: "/var/loki/rules/fake"
-      extraVolumes:
-        - name: rules
-          configMap:
-            name: loki-alerting-rules
+  read: 
+    extraVolumeMounts:
+      - name: rules
+        mountPath: "/var/loki/rules/fake"
+    extraVolumes:
+      - name: rules
+        configMap:
+          name: loki-alerting-rules
 
 # ruler:
 #   enabled: true
