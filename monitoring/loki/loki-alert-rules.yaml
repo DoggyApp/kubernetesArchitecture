@@ -3,7 +3,7 @@ groups:
     rules:
       - alert: AngularFrontendError
         expr: |
-          count_over_time({container="webapp"} |= "Error:" [1m]) > 0
+          count_over_time({app="webapp"} |= "(?i)error" [1m]) > 0 
         for: 30s
         labels:
           severity: critical
@@ -15,7 +15,7 @@ groups:
     rules:
       - alert: SpringBootExceptionDetected
         expr: |
-          count_over_time({container="registry"} |= "Exception" [1m]) > 0
+          count_over_time({app="registry"} |= "(?i)error" [1m]) > 0
         for: 30s
         labels:
           severity: critical
