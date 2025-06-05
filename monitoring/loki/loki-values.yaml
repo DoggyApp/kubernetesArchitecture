@@ -35,7 +35,8 @@ singleBinary:
     - name: tmp-loki
       mountPath: /tmp/loki
     - name: loki-rules
-      mountPath: /tmp/loki/rules
+      mountPath: /tmp/loki/rules/fake/loki-alert-rules.yaml
+      subPath: fake/loki-alert-rules.yaml
       readOnly: true
 
   extraConfigMounts: 
