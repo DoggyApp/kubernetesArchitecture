@@ -25,24 +25,24 @@ singleBinary:
 
 # Make sure there are ephemaral volume mounts for things like alert rules and ect. 
   extraVolumes:
-    - name: loki-rules
-      configMap:
-        name: loki-rule-config
+    # - name: loki-rules
+    #   configMap:
+    #     name: loki-rule-config
     - name: tmp-loki
       emptyDir: {}
 
   extraVolumeMounts:
     - name: tmp-loki
       mountPath: /tmp/loki
-    - name: loki-rules
-      mountPath: /tmp/loki/rules/fake/loki-alert-rules.yaml
-      subPath: fake/loki-alert-rules.yaml
-      readOnly: true
+    # - name: loki-rules
+    #   mountPath: /tmp/loki/rules/fake/loki-alert-rules.yaml
+    #   subPath: fake/loki-alert-rules.yaml
+    #   readOnly: true
 
-  extraConfigMounts: 
-    - name: loki-rules
-      mountPath: /tmp/loki/rules
-      readOnly: true
+  # extraConfigMounts: 
+  #   - name: loki-rules
+  #     mountPath: /tmp/loki/rules
+  #     readOnly: true
 
 # Shut down all microservices so that the monolithic architecture can be used instead 
 read:
@@ -125,6 +125,21 @@ ruler:
       operator: "Equal"
       value: "monitoring"
       effect: "NoSchedule"
+
+  extraVolumes:
+    - name: loki-rules
+      configMap:
+        name: loki-rule-config
+
+  extraVolumeMounts:
+    - name: loki-rules
+      mountPath: /tmp/loki/rules
+      readOnly: true
+
+  extraConfigMounts: 
+    - name: loki-rules
+      mountPath: /tmp/loki/rules
+      readOnly: true
 
 
 monitoring:
