@@ -32,11 +32,13 @@ singleBinary:
       emptyDir: {}
 
   extraVolumeMounts:
+    - name: tmp-loki
+      mountPath: /tmp/loki
+
+  extraConfigMounts: 
     - name: loki-rules
       mountPath: /tmp/loki/rules
       readOnly: true
-    - name: tmp-loki
-      mountPath: /tmp/loki
 
 # Shut down all microservices so that the monolithic architecture can be used instead 
 read:
@@ -102,6 +104,7 @@ loki:
     working_directory: /tmp/loki/compactor
 
   rulerConfig:
+    enable_api: true
     storage:
       type: local
       local:
