@@ -152,3 +152,6 @@ curl -X POST http://localhost:5000/webhook   -H 'Content-Type: application/json'
 # kubectl -n monitoring port-forward svc/alert-analyzer-service 8080:80
 
 aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["8080"],"localPortNumber":["5000"]}'
+
+
+aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3100"],"localPortNumber":["3100"]}'

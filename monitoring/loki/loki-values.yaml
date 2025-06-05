@@ -34,6 +34,9 @@ singleBinary:
   extraVolumeMounts:
     - name: tmp-loki
       mountPath: /tmp/loki
+    - name: loki-rules
+      mountPath: /tmp/loki/rules
+      readOnly: true
 
   extraConfigMounts: 
     - name: loki-rules
