@@ -132,6 +132,8 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 # kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 
+kubectl port-forward -n monitoring svc/loki 3100:3100
+
 aws ssm start-session --target i-0a472ed38fb2b4698 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
 
 
