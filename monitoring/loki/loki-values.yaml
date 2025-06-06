@@ -32,6 +32,8 @@ singleBinary:
         name: loki-alert-rules
     - name: loki-compactor
       emptyDir: {}
+    - name: loki-tsdb-cache
+      emptyDir: {}
 
   extraVolumeMounts:
     - name: loki-chunks
@@ -41,6 +43,8 @@ singleBinary:
       readOnly: true
     - name: loki-compactor
       mountPath: /tmp/loki/compactor
+    - name: loki-tsdb-cache
+      mountPath: /tmp/loki/tsdb-shipper-cache
 
   # extraConfigMounts: 
   #   - name: loki-rules
