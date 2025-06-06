@@ -25,19 +25,22 @@ singleBinary:
 
 # Make sure there are ephemaral volume mounts for things like alert rules and ect. 
   extraVolumes:
-    # - name: loki-rules
-    #   configMap:
-    #     name: loki-rule-config
-    - name: tmp-loki
+    - name: loki-chunks
+      emptyDir: {}
+    - name: loki-rules
+      configMap:
+        name: loki-alert-rules
+    - name: loki-compactor
       emptyDir: {}
 
   extraVolumeMounts:
-    - name: tmp-loki
-      mountPath: /tmp/loki
-    # - name: loki-rules
-    #   mountPath: /tmp/loki/rules/fake/loki-alert-rules.yaml
-    #   subPath: fake/loki-alert-rules.yaml
-    #   readOnly: true
+    - name: loki-chunks
+      mountPath: /tmp/loki/chunks
+    - name: loki-rules
+      mountPath: /tmp/loki/rules/fake
+      readOnly: true
+    - name: loki-compactor
+      mountPath: /tmp/loki/compactor
 
   # extraConfigMounts: 
   #   - name: loki-rules
@@ -112,22 +115,22 @@ loki:
     storage:
       type: local
       local:
-        directory: /var/loki/rules
-    rule_path: /var/loki/rules-temp
+        directory: /tmp/loki/rules
+    rule_path: "/tmp/loki/rules"
     ring:
         kvstore:
           store: inmemory
     enable_alertmanager_v2: true
     alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring:9093
 
-  read: 
-    extraVolumeMounts:
-      - name: rules
-        mountPath: "/var/loki/rules/fake"
-    extraVolumes:
-      - name: rules
-        configMap:
-          name: loki-alert-rules
+  # read: 
+  #   extraVolumeMounts:
+  #     - name: rules
+  #       mountPath: "/tmp/loki/rules/fake"
+  #   extraVolumes:
+  #     - name: rules
+  #       configMap:
+  #         name: loki-alert-rules
 
 # ruler:
 #   enabled: true
