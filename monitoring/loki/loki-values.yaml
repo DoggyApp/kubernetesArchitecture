@@ -32,7 +32,12 @@ singleBinary:
         name: loki-alert-rules
     - name: loki-compactor
       emptyDir: {}
+
+# this these are all of the mounts that need to be put up cuz loki need them to run I don't want 
+# to nest my mounts so i'm making each one manually until loki works 
     - name: loki-tsdb-cache
+      emptyDir: {}
+    - name: loki-tsdb-active
       emptyDir: {}
 
   extraVolumeMounts:
@@ -43,8 +48,13 @@ singleBinary:
       readOnly: true
     - name: loki-compactor
       mountPath: /tmp/loki/compactor
+
+# this these are all of the mounts that need to be put up cuz loki need them to run I don't want 
+# to nest my mounts so i'm making each one manually until loki works 
     - name: loki-tsdb-cache
       mountPath: /tmp/loki/tsdb-shipper-cache
+    - name: loki-tsdb-active
+      mountPath: /tmp/loki/tsdb-shipper-active
 
   # extraConfigMounts: 
   #   - name: loki-rules
