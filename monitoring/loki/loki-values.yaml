@@ -1,15 +1,9 @@
 
-
-# This is a complete configuration to deploy Loki backed by the filesystem.
-# The index will be shipped to the storage via tsdb-shipper.
-
 deploymentMode: SingleBinary
 
-# Enable single binary deployment mode
 singleBinary:
   replicas: 1
 
-# Make sure that loki is deployed to the monitoring node 
   nodeSelector:
     workload: monitoring
 
@@ -19,11 +13,9 @@ singleBinary:
       value: "monitoring"
       effect: "NoSchedule"
 
-# Make sure persistence is turned off (or configure if needed)
   persistence:
     enabled: false
 
-# Make sure there are ephemaral volume mounts for things like alert rules and ect. 
   extraVolumes:
     - name: loki-chunks
       emptyDir: {}
@@ -32,9 +24,6 @@ singleBinary:
         name: loki-alert-rules
     - name: loki-compactor
       emptyDir: {}
-
-# this these are all of the mounts that need to be put up cuz loki need them to run I don't want 
-# to nest my mounts so i'm making each one manually until loki works 
     - name: loki-tsdb-cache
       emptyDir: {}
     - name: loki-tsdb-active
@@ -50,9 +39,6 @@ singleBinary:
       readOnly: true
     - name: loki-compactor
       mountPath: /tmp/loki/compactor
-
-# this these are all of the mounts that need to be put up cuz loki need them to run I don't want 
-# to nest my mounts so i'm making each one manually until loki works 
     - name: loki-tsdb-cache
       mountPath: /tmp/loki/tsdb-shipper-cache
     - name: loki-tsdb-active
@@ -60,10 +46,6 @@ singleBinary:
     - name: loki-wal
       mountPath: /tmp/loki/wal
 
-  # extraConfigMounts: 
-  #   - name: loki-rules
-  #     mountPath: /tmp/loki/rules
-  #     readOnly: true
 
 # Shut down all microservices so that the monolithic architecture can be used instead 
 read:
@@ -140,41 +122,6 @@ loki:
           store: inmemory
     enable_alertmanager_v2: true
     alertmanager_url: http://kube-prometheus-stack-alertmanager.monitoring:9093
-
-  # read: 
-  #   extraVolumeMounts:
-  #     - name: rules
-  #       mountPath: "/tmp/loki/rules/fake"
-  #   extraVolumes:
-  #     - name: rules
-  #       configMap:
-  #         name: loki-alert-rules
-
-# ruler:
-#   enabled: true
-#   nodeSelector:
-#     workload: monitoring
-#   tolerations:
-#     - key: "workload"
-#       operator: "Equal"
-#       value: "monitoring"
-#       effect: "NoSchedule"
-
-#   extraVolumes:
-#     - name: loki-rules
-#       configMap:
-#         name: loki-rule-config
-
-#   extraVolumeMounts:
-#     - name: loki-rules
-#       mountPath: /tmp/loki/rules
-#       readOnly: true
-
-#   extraConfigMounts: 
-#     - name: loki-rules
-#       mountPath: /tmp/loki/rules
-#       readOnly: true
-
 
 monitoring:
   alerts:
