@@ -39,6 +39,8 @@ singleBinary:
       emptyDir: {}
     - name: loki-tsdb-active
       emptyDir: {}
+    - name: loki-wal
+      emptyDir: {}
 
   extraVolumeMounts:
     - name: loki-chunks
@@ -55,6 +57,8 @@ singleBinary:
       mountPath: /tmp/loki/tsdb-shipper-cache
     - name: loki-tsdb-active
       mountPath: /tmp/loki/tsdb-shipper-active
+    - name: loki-wal
+      mountPath: /tmp/loki/wal
 
   # extraConfigMounts: 
   #   - name: loki-rules
