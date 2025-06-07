@@ -22,6 +22,8 @@ singleBinary:
     - name: loki-rules
       configMap:
         name: loki-alert-rules
+    - name: loki-rules-temp
+      emptyDir: {}
     - name: loki-compactor
       emptyDir: {}
     - name: loki-tsdb-cache
@@ -37,6 +39,8 @@ singleBinary:
     - name: loki-rules
       mountPath: /tmp/loki/rules/fake
       readOnly: true
+    - name: loki-rules-temp
+      mountPath: /tmp/loki/rules-temp
     - name: loki-compactor
       mountPath: /tmp/loki/compactor
     - name: loki-tsdb-cache
@@ -127,7 +131,7 @@ loki:
       type: local
       local:
         directory: /tmp/loki/rules
-    rule_path: /tmp/loki/rules
+    rule_path: /tmp/loki/rules-temp
     ring:
         kvstore:
           store: inmemory
