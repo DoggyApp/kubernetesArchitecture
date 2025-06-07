@@ -11,7 +11,7 @@ data:
         rules:
           - alert: AngularFrontendError
             expr: |
-              count_over_time({app="webapp"} |= "(?i)error" [5m]) > 0 
+              count_over_time({app="webapp"} |= "error" [15m]) > 0 
             for: 1m
             labels:
               severity: critical
@@ -23,7 +23,7 @@ data:
         rules:
           - alert: SpringBootExceptionDetected
             expr: |
-              count_over_time({app="registry"} |= "(?i)error" [5m]) > 0
+              count_over_time({app="registry"} |= "ERROR" [15m]) > 0
             for: 1m
             labels:
               severity: critical
