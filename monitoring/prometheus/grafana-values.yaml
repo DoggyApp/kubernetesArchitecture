@@ -3,6 +3,6 @@ grafana:
     - name: Loki
       type: loki
       access: proxy
-      url: http://loki-gateway.monitoring.svc.cluster.local
+      url: http://loki.monitoring.svc:3100/loki/api/v1/query_range
       isDefault: false
       editable: true
