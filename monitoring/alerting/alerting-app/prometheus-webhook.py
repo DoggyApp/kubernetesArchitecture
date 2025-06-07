@@ -185,6 +185,7 @@ def handle_alert():
         alert_data = request.json
         for alert in alert_data.get("alerts", []):
             app.logger.info("just recieved alert")
+            app.logger.info(alert)
             starts_at = alert.get("startsAt")
             labels = alert.get("labels", {})
             namespace = labels.get("namespace", "default")
@@ -193,10 +194,10 @@ def handle_alert():
             alertname = labels.get("alertname", "Alert")
 
             # Convert times
-            app.logger.info(starts_at)
-            start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc) # need to catch this it changes from needing milisec to not 
-            app.logger.info(start_dt)
-            end_dt = start_dt + datetime.timedelta(days=10)
+            start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
+            end_dt = start_dt + datetime.timedelta(minutes=10)
+            start_dt = start_dt - datetime.timedelta(minutes=10)  # pull a bit earlier too
+
             
             start_ns = int(start_dt.timestamp() * 1e9)
             end_ns = int(end_dt.timestamp() * 1e9)
@@ -206,6 +207,8 @@ def handle_alert():
             log_query = f'{{namespace="{namespace}", pod="{pod}"}}'
             app.logger.info("loki query")
             app.logger.info(log_query)
+            app.logger.info(start_ns)
+            app.logger.info(end_ns)
             loki_response = query_loki(start_ns, end_ns, log_query)
             app.logger.info("loki response")
             app.logger.info(loki_response)
