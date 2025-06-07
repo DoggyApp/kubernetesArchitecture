@@ -127,7 +127,7 @@ loki:
       type: local
       local:
         directory: /tmp/loki/rules
-    rule_path: /tmp/loki/rules/fake
+    rule_path: /tmp/loki/rules
     ring:
         kvstore:
           store: inmemory
