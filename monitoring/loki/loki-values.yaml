@@ -73,9 +73,6 @@ bloomCompactor:
 bloomGateway:
   replicas: 0
 
-gateway:
-  enabled: false
-
 canary:
   enabled: false
 
