@@ -35,7 +35,7 @@ singleBinary:
     - name: loki-chunks
       mountPath: /tmp/loki/chunks
     - name: loki-rules
-      mountPath: /tmp/loki/rules/fake
+      mountPath: /tmp/loki/rules
       readOnly: true
     - name: loki-compactor
       mountPath: /tmp/loki/compactor
