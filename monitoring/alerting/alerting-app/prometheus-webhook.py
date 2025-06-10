@@ -36,7 +36,7 @@ def get_openai_key():
 
 def get_secret():
     app.logger.info("inside get secret")
-    secret_name = "doggy-openai-key"
+    secret_name = "openAI-key-doggy"
     region_name = "us-east-1"
 
     # Create a Secrets Manager client
@@ -67,7 +67,7 @@ def get_secret():
 # Loki and OpenAI config
 LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:109798190983:doggy-alerts"
+SNS_TOPIC_ARN = os.getenv("SNS_ARN", "arn:aws:sns:us-east-1:109798190983:doggy-alerts")
 
 app.logger.info(LOKI_URL)
 app.logger.info(OPENAI_API_URL)
@@ -133,24 +133,6 @@ def ask_openai(question):
         return {"error": "Unexpected error occurred"}
 
     return {"error": "Failed to get a response from OpenAI"}
-    # headers = {
-    #     "Authorization": f"Bearer {get_openai_key()}", 
-    #     "Content-Type": "application/json"
-    # }
-    # data = {
-    #     "model": "gpt-3.5-turbo",
-    #     "messages": [
-    #         {"role": "system", "content": "You are an expert in debugging Kubernetes applications."},
-    #         {"role": "user", "content": question}
-    #     ]
-    # }
-     
-        # response = requests.post(OPENAI_API_URL, headers=headers, json=data)
-        # response.raise_for_status()
-        # return response.json()
-    # except requests.RequestException as e:
-    #     app.logger.info(f"Error calling OpenAI: {e}")
-    #     return {"choices": [{"message": {"content": "Error querying OpenAI"}}]}
 
 
 def notify_user(subject, message):
@@ -165,18 +147,6 @@ def notify_user(subject, message):
         app.logger.info(f"Successfully published to SNS: {response}")
     except ClientError as e:
         app.logger.info(f"Failed to publish to SNS: {e}")
-        # traceback.print_exc()
-    
-# def get_dummy_logs():
-#     now = datetime.datetime.utcnow()
-#     logs = [
-#         f"{now.isoformat()} [INFO] Starting user authentication process for user_id=1234",
-#         f"{now.isoformat()} [ERROR] Failed to write session to Redis for user_id=1234: timeout",
-#         f"{now.isoformat()} [WARN] Falling back to local session cache",
-#         f"{now.isoformat()} [DEBUG] GET /dashboard returned 200 in 85ms",
-#         f"{now.isoformat()} [ERROR] Unexpected null value in response from billing service",
-#     ]
-#     return "\n".join(logs)
 
 @app.route("/webhook", methods=["POST"])
 def handle_alert():

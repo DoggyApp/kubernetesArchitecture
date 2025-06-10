@@ -1,0 +1,88 @@
+This project provides an infrastructure-as-code solution for deploying a full stack application with a rubust monitoring suit to Amazon EKS. The setup includes metric collection and alerting with Pormetheus and log scraping, aggregation and alterting with Promtail and Loki. Grafana is used to visualize this data, and OpenAI is intergated into the alerting pipeline to provide rich alaysis. 
+
+🛠️ Features
+
+    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a single script. 
+
+    📜 Scrapes logs from deployed application and alerts when an "ERROR" appears. 
+
+    📊 Uses Kube-Prometheus-Stack for standard alerts, dashboads and metric scraping. 
+
+    📈 Ability to autoscale nodes as well a pods. 
+
+    🌐 Features an Ingress controller and loadbalancer for public internet access, and proper routing even at scale. 
+
+    🤖 Intergrates OpenIA into the alerting pipeline for rich analysis 
+
+    📨 Sends enriched alterts via AWS SNS. 
+
+🧱 Architecture
+
+    Default Namespace 
+
+        Webapp and registry pods, the full stack application. 
+
+    Monitoring Namespace 
+
+        Loki deployed in a monolithic architecture. 
+
+        Promtail scraper deployed on the same node as the full stack application collecting container logs. 
+
+        Prometheus stack, including pods for scraping metrics, alert management, and api requests, as well as app componenets. 
+
+        Alert analyzer, the pod dediceted to recieving alerts from prometheus alert manager, enriching them through OpenAI and then forwarding that to AWS SNS. 
+
+    System namespace 
+
+        Node Autoscaler provided with IAM permissions to perform the tasks of scaling up and down node in accordance to their need. (Minimum : 0, Desired : 1, Maximum : 2)
+
+🚀 Deployment
+
+    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git. Also ensure that you have your AWS credentials properly configured on your personal computer. 
+
+        # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. 
+        # from your terminal run, this will start a remote session in that EC2 instance. 
+        aws ssm start-session --target <the mgmt instance instance ID>
+
+        # in the start up script for this instance we git cloned this very project into the instance under /home/ec-user, log in and make sure that it is there
+        sudo su - ec2-user 
+        cd kubernetesArchitecture 
+
+        # run the start up script, you should see instructions to put in your own credentials and information for the project to work. 
+        bash setup.bash 
+
+        # confirm that the project is running 
+        kubectl get pods 
+        kubectl get pods -n monitoring 
+
+        #go to the web page and confirm that it is there and that the notification systems are running 
+        echo $LB_HOST
+
+        # copy the URL into your browser, you should see 3 buttons "test" "trigger frontend error" "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger frontend error" and "trigger backend error" as to what error was triggered and an analysis of the logs. 
+        
+        # Ensure that Grafana is running 
+        # This is the command to get the password to log into the UI 
+        kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
+
+        # Grafana is running in the cluster so you have to port forward to reach it from the bastion 
+        kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+
+        # the bastion doesn't have a browser and Grafana is viewed in the browser so you have to porr forward again from the bastion to your local computer, you can do this with Session Manager. Open a new terminal window on your local computer and enter this command. 
+        aws ssm start-session --target <your mgmg instance ID> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+
+        # go to your browser and type in http://localhost:3000 grafana will appear there, log in with user name "admin" and the password that you collected 3 commands ago, it should be "prom-operator". 
+
+        # Once logged in you can explore and see dashboards, alert rules, logs and data sources. 
+
+🛡️ Security 
+
+    🔐 Grafan is not exposed by the ingress controller, and is only accessible through port forwarding with an SSM session, or from within the cluster. 
+
+    🔐 Wildcard masks were removed from the ingress controller and all end points were specifically routed to. 
+
+    ⚠️ WARNING: Containers and nodes need to be hardened after I had set up logging, I found that an intuder was making illicite API calls from my webapp container. 
+
+    ⚠️ WARNING: There need to be restrictions placed on the the DNS so that API calls across namespaces cannot be made from the publicly accessible pods. 
+
+    ⚠️ WARNING: The open-api key in the alert-analyser is stored in plain text after being called from the secret manager, if you place it into the setup.bash script it will also be stored in plain text. A security group blocks all ingress to the mgmt host and is only reachable by SSM session, but this is still a security concern. The alert analyzer is open on port 5000 and is a greater security concern. 
+

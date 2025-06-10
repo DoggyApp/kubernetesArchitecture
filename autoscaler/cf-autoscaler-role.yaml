@@ -11,7 +11,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: arn:aws:iam::109798190983:oidc-provider/$OIDC_URL
+              Federated: arn:aws:iam::$AWS_ID:oidc-provider/$OIDC_URL
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals: 
@@ -39,6 +39,6 @@ Resources:
 Outputs:
   ClusterAutoscalerRoleArn:
     Description: ARN of the Cluster Autoscaler IAM Role
-    Value: !GetAtt ClusterAutoscalerRole.Arn
+    Value: !Ref ClusterAutoscalerRole
     Export:
       Name: ClusterAutoscalerRoleArn

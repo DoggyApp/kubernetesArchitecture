@@ -1,5 +1,14 @@
 #!/bin/bash
 
+# get the user's email 
+read -p "We need your email to set up the SNS service, it won't go anywhere" email 
+read -p "We also need your AWS ID to set up everything, it won't go anywhere" aws_id
+read -p "The application intergrates with OpenAI, you need a valid key and credits for the intergration to work otherwise you'll recieve an error, you can purchase some here https://openai.com/api/ you don't need more that a dollar just to see that it's working" openai_key
+
+export EMAIL="email"
+export AWS_ID="aws_id"
+export OPENAI_KEY="openai_key"
+
 # set env variables 
 export CLUSTER_NAME="doggy-app-eks-cluster-0"
 export NODEGROUP_NAME="doggy-app-eks-ng-monitoring"
@@ -49,7 +58,7 @@ kubectl create namespace ingress-nginx
 kubectl apply -k /home/ec2-user/kubernetesArchitecture/ingress/
 
 # get host address and create a config map from it 
-LB_HOST=$(kubectl get ingress doggy-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+export LB_HOST=$(kubectl get ingress doggy-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
 
 kubectl create configmap frontend-config \
   --from-literal=LOAD_BALANCER_URL="http://$LB_HOST" \
@@ -76,10 +85,7 @@ helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheu
 helm repo add grafana https://grafana.github.io/helm-charts
 helm repo update
 
-kubectl create configmap loki-rule-config \
-  --from-file=/home/ec2-user/kubernetesArchitecture/monitoring/loki/loki-alert-rules.yaml \
-  -n monitoring \
-  --dry-run=client -o yaml | kubectl apply -f -
+kubectl apply -f /home/ec2-user/kubernetesArchitecture/monitoring/loki/loki-alert-rules.yaml -n monitoring
 
 helm upgrade --install loki grafana/loki \
   -n monitoring \
@@ -98,7 +104,24 @@ helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
 
 # =================================================================================
 
-# User previously Call OIDC provider and create IAM role necessary for alert analyzer 
+envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/cf-sns.yaml > /home/ec2-user/config/cf-sns-up.yaml
+
+aws cloudformation deploy \
+  --template-file /home/ec2-user/config/cf-sns-up.yaml \
+  --stack-name sns-and-secret-doggy 
+
+export OPENAI_SECRET_ARN=$(aws cloudformation describe-stacks \
+  --stack-name sns-and-secret-doggy \
+  --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" \
+  --output text)
+
+export SNS_TOPIC_ARN=$(aws cloudformation describe-stacks \
+  --stack-name sns-and-secret-doggy \
+  --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" \
+  --output text)
+
+# User previously Call OIDC provider and create IAM role necessary for alert analyzer, 
+# Also make the SNS service. 
 
 envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/cf-alert-hook-role.yaml > /home/ec2-user/config/cf-alert-hook-role-up.yaml
 
@@ -117,14 +140,27 @@ envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/alert-servi
 
 kubectl apply -f /home/ec2-user/config/alert-service-account-up.yaml
 
+#call the SNS service IAM 
+
+envsubst < /home/ec2-user/kubernetesArchitecture/monitoring/alerting/alert-pod.yaml > /home/ec2-user/config/alert-pod-up.yaml
+
 # Deply alerting pod 
-kubectl apply -f /home/ec2-user/kubernetesArchitecture/monitoring/alerting/alert-pod.yaml 
+kubectl apply -f /home/ec2-user/kubernetesArchitecture/config/alert-pod-up.yaml 
 
 # update alert manager with needed config 
 helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
   --namespace monitoring \
   -f /home/ec2-user/kubernetesArchitecture/monitoring/prometheus/alert-manager-values.yaml\
   --reuse-values
+
+
+
+
+
+
+
+
+
 
 
 

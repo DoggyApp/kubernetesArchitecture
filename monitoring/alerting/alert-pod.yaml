@@ -22,8 +22,8 @@ spec:
           env:
             - name: LOKI_URL
               value: "http://loki.monitoring.svc:3100/loki/api/v1/query_range"
-            - name: SNS_TOPIC_ARN
-              value: "arn:aws:sns:us-east-1:109798190983:doggy-alerts:780078be-0b8b-47e8-8c4a-9778a06d5bb2"
+            - name: SNS_ARN
+              value: "$SNS_ARN"
           # Add AWS IAM role if using IRSA (optional)
           # env:
           #   - name: AWS_REGION

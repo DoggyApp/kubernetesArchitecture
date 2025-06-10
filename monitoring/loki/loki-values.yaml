@@ -99,11 +99,6 @@ loki:
         store: inmemory
     replication_factor: 1
     path_prefix: /tmp/loki
-  storage:
-    type: 'filesystem'
-    filesystem:
-      chunks_directory: "/var/loki/chunks"
-      rules_directory: "/var/loki/rules"
 
   schemaConfig:
     configs:

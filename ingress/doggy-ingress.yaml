@@ -12,14 +12,14 @@ spec:
   - http:
       paths:
         # For /api/ paths, we want to strip the /api prefix
-        - path: /api/(.*)
+        - path: /api/registry/(.*)
           pathType: ImplementationSpecific
           backend:
             service:
               name: registry-service
               port:
                 number: 8080
-        - path: /(.*)
+        - path: /
           pathType: ImplementationSpecific
           backend:
             service:

@@ -11,7 +11,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: arn:aws:iam::109798190983:oidc-provider/$OIDC_URL
+              Federated: arn:aws:iam::$AWS_ID:oidc-provider/$OIDC_URL
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals: 
@@ -24,15 +24,16 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "arn:aws:secretsmanager:us-east-1:109798190983:secret:doggy-openai-key-scrbTx"
+                Resource: "$OPENAI_SECRET_ARN"
               - Effect: Allow
                 Action:
                   - sns:Publish
-                Resource: "arn:aws:sns:us-east-1:109798190983:doggy-alerts"
+                Resource: "$SNS_TOPIC_ARN"
+
 
 Outputs:
   ClusterAlerterRoleArn:
     Description: ARN of the Cluster Alerter IAM Role
-    Value: !GetAtt ClusterAlerterRole.Arn
+    Value: !Ref ClusterAlerterRole
     Export:
       Name: ClusterAlerterRoleArn
