@@ -1,0 +1,192 @@
+---
+- name: Deploy full Kubernetes stack to AWS using Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  vars_prompt:
+    - name: email
+      prompt: "We need your email to set up the SNS service, it won't go anywhere"
+      private: no
+    - name: aws_id
+      prompt: "We also need your AWS ID to set up everything, it won't go anywhere"
+      private: no
+    - name: openai_key
+      prompt: "Enter your OpenAI API key (you need to purchase credits on OpenAI for the integration to work, 2$ is more than enough for a demo)"
+      private: yes
+  vars:
+    cluster_name: "doggy-app-eks-cluster-0"
+    nodegroup_name: "doggy-app-eks-ng-monitoring"
+    region: "us-east-1"
+    config_dir: "/home/ec2-user/config"
+    arch_dir: "/home/ec2-user/kubernetesArchitecture"
+
+  tasks:
+    - name: Update kubeconfig
+      shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }} --profile eks-cluster-admin
+
+    - name: Install Helm
+      shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+    - name: Associate IAM OIDC provider
+      shell: eksctl utils associate-iam-oidc-provider --cluster {{ cluster_name }} --approve
+
+    - name: Get OIDC URL
+      shell: |
+        aws eks describe-cluster \
+          --name {{ cluster_name }} \
+          --query "cluster.identity.oidc.issuer" \
+          --output text | sed 's|https://||'
+      register: oidc_url
+
+    - name: Render autoscaler role template
+      shell: |
+        export OIDC_URL={{ oidc_url.stdout }}
+        envsubst < {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
+
+    - name: Deploy autoscaler role stack
+      shell: |
+        aws cloudformation deploy \
+          --template-file {{ config_dir }}/cf-autoscaler-role-up.yaml \
+          --stack-name cluster-autoscaler-iam-role \
+          --capabilities CAPABILITY_NAMED_IAM
+
+    - name: Get autoscaler role ARN
+      shell: |
+        aws cloudformation describe-stacks \
+          --stack-name cluster-autoscaler-iam-role \
+          --query "Stacks[0].Outputs[?OutputKey=='ClusterAutoscalerRoleArn'].OutputValue" \
+          --output text
+      register: autoscaler_role_arn
+
+    - name: Render autoscaler values
+      shell: |
+        export AUTOSC_ROLE_ARN={{ autoscaler_role_arn.stdout }}
+        envsubst < {{ arch_dir }}/autoscaler/autoscaler-values.yaml > {{ config_dir }}/autoscaler-values-up.yaml
+
+    - name: Add autoscaler Helm repo
+      shell: helm repo add autoscaler https://kubernetes.github.io/autoscaler
+
+    - name: Update Helm repos
+      shell: helm repo update
+
+    - name: Install autoscaler
+      shell: |
+        helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
+          --namespace kube-system \
+          --create-namespace \
+          -f {{ config_dir }}/autoscaler-values-up.yaml
+
+    - name: Pause for autoscaler setup
+      pause:
+        seconds: 15
+
+    - name: Create ingress namespace
+      shell: kubectl create namespace ingress-nginx
+
+    - name: Apply ingress
+      shell: kubectl apply -k {{ arch_dir }}/ingress/
+
+    - name: Pause for ingress setup
+      pause:
+        seconds: 30
+
+    - name: Get LoadBalancer hostname
+      shell: |
+        kubectl get ingress doggy-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+      register: lb_host
+
+    - name: Create frontend config map
+      shell: |
+        kubectl create configmap frontend-config \
+          --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
+          --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Apply application pods and services
+      shell: |
+        kubectl apply -f {{ arch_dir }}/default/pods.yaml
+        kubectl apply -f {{ arch_dir }}/default/services.yaml
+
+    - name: Create monitoring namespace
+      shell: kubectl create namespace monitoring
+
+    - name: Add Prometheus Helm repo
+      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+
+    - name: Install Prometheus stack
+      shell: |
+        helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          -f {{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml
+
+    - name: Add Grafana Helm repo
+      shell: helm repo add grafana https://grafana.github.io/helm-charts
+
+    - name: Apply Loki alert rules
+      shell: kubectl apply -f {{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml -n monitoring
+
+    - name: Install Loki
+      shell: |
+        helm upgrade --install loki grafana/loki \
+          -n monitoring \
+          -f {{ arch_dir }}/monitoring/loki/loki-values.yaml
+
+    - name: Install Promtail
+      shell: |
+        helm upgrade --install promtail grafana/promtail \
+          --namespace monitoring \
+          --create-namespace \
+          -f {{ arch_dir }}/monitoring/promtail/promtail-values.yaml
+
+    - name: Update Grafana values
+      shell: |
+        helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+          -n monitoring \
+          -f {{ arch_dir }}/monitoring/prometheus/grafana-values.yaml \
+          --reuse-values
+
+    - name: Render SNS stack
+      shell: |
+        export EMAIL={{ email }}
+        export AWS_ID={{ aws_id }}
+        export OPENAI_KEY={{ openai_key }}
+        envsubst < {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
+
+    - name: Deploy SNS and secret stack
+      shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-sns-up.yaml --stack-name sns-and-secret-doggy
+
+    - name: Get SNS and secret ARNs
+      shell: |
+        export OPENAI_SECRET_ARN=$(aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" --output text)
+        export SNS_TOPIC_ARN=$(aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text)
+
+    - name: Render alert hook role
+      shell: envsubst < {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
+
+    - name: Deploy alert hook IAM role
+      shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-alert-hook-role-up.yaml --stack-name alert-hook-iam-role --capabilities CAPABILITY_NAMED_IAM
+
+    - name: Get alert hook role ARN
+      shell: |
+        aws cloudformation describe-stacks \
+          --stack-name alert-hook-iam-role \
+          --query "Stacks[0].Outputs[?OutputKey=='ClusterAlerterRoleArn'].OutputValue" \
+          --output text
+      register: alerter_role_arn
+
+    - name: Render and apply alert service account
+      shell: |
+        export ALERTER_ROLE_ARN={{ alerter_role_arn.stdout }}
+        envsubst < {{ arch_dir }}/monitoring/alerting/alert-service-account.yaml > {{ config_dir }}/alert-service-account-up.yaml
+        kubectl apply -f {{ config_dir }}/alert-service-account-up.yaml
+
+    - name: Render and apply alert pod
+      shell: |
+        envsubst < {{ arch_dir }}/monitoring/alerting/alert-pod.yaml > {{ config_dir }}/alert-pod-up.yaml
+        kubectl apply -f {{ config_dir }}/alert-pod-up.yaml
+
+    - name: Update Alertmanager config
+      shell: |
+        helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
+          --namespace monitoring \
+          -f {{ arch_dir }}/monitoring/prometheus/alert-manager-values.yaml \
+          --reuse-values

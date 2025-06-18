@@ -38,7 +38,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
 🚀 Deployment
 
-    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git. Also ensure that you have your AWS credentials properly configured on your personal computer. 
+    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS credentials properly configured on your personal computer. 
 
         # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. 
         # from your terminal run, this will start a remote session in that EC2 instance. 
