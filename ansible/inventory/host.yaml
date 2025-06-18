@@ -1,2 +1,0 @@
-all:
-  ansible_connection: local
