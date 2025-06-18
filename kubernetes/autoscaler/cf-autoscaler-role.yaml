@@ -11,11 +11,11 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: arn:aws:iam::{{ aws_id }}:oidc-provider/{{ oidc_url }}
+              Federated: arn:aws:iam::$AWS_ID:oidc-provider/$OIDC_URL
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals: 
-                "{{ oidc_url }}:sub" : "system:serviceaccount:kube-system:cluster-autoscaler"
+                "$OIDC_URL:sub" : "system:serviceaccount:kube-system:cluster-autoscaler"
 
       Policies:
         - PolicyName: ClusterAutoscalerPermissions

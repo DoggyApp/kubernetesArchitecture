@@ -12,7 +12,7 @@ Resources:
     Type: AWS::SNS::Subscription
     Properties:
       Protocol: email
-      Endpoint: {{ email }} # <-- Replace with your email
+      Endpoint: $EMAIL 
       TopicArn: !Ref SNSTopic
 
   OpenAISecret:
@@ -20,7 +20,7 @@ Resources:
     Properties:
       Name: openAI-key-doggy
       Description: open AI api key 
-      SecretString: '{"openai-api-key-doggy":"{{ openai_key }}"}'
+      SecretString: '{"openai-api-key-doggy":"$OPENIA_KEY"}'
 
 Outputs:
   SNSTopicArn:

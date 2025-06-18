@@ -25,6 +25,21 @@ gunicorn_logger = logging.getLogger('gunicorn.error')
 app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
 
+
+# Loki and OpenAI config
+LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
+OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
+SNS_TOPIC_ARN = os.getenv("SNS_ARN", "arn:aws:sns:us-east-1:109798190983:doggy-alerts")
+LB_HOST = os.getenv("LB_HOST")
+
+app.logger.info(LOKI_URL)
+app.logger.info(OPENAI_API_URL)
+app.logger.info(SNS_TOPIC_ARN)
+app.logger.info(LB_HOST)
+
+
+notify_user("Host Url", LB_HOST)
+
 def get_openai_key():
     app.logger.info("inside get openAI key")
     if not hasattr(get_openai_key, "cached_key"):
@@ -63,15 +78,6 @@ def get_secret():
     app.logger.info(secret_dict)
 
     return secret_dict['doggy-openai-key']
-    
-# Loki and OpenAI config
-LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
-OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
-SNS_TOPIC_ARN = os.getenv("SNS_ARN", "arn:aws:sns:us-east-1:109798190983:doggy-alerts")
-
-app.logger.info(LOKI_URL)
-app.logger.info(OPENAI_API_URL)
-app.logger.info(SNS_TOPIC_ARN)
 
 def query_loki(start, end, query):
     app.logger.info("inside query loki")
