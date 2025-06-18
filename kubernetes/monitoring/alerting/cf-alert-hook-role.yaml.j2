@@ -11,11 +11,11 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: arn:aws:iam::$AWS_ID:oidc-provider/$OIDC_URL
+              Federated: arn:aws:iam::$AWS_ID:oidc-provider/{{ oidc_url }}
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals: 
-                "$OIDC_URL:sub" : "system:serviceaccount:monitoring:alert-analyzer"
+                "{{ oidc_url }}:sub" : "system:serviceaccount:monitoring:alert-analyzer"
       Policies:
         - PolicyName: WebhookSecretCaller
           PolicyDocument:
@@ -24,11 +24,11 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "$OPENAI_SECRET_ARN"
+                Resource: "{{ openai_secret_arn }}"
               - Effect: Allow
                 Action:
                   - sns:Publish
-                Resource: "$SNS_TOPIC_ARN"
+                Resource: "{{ sns_topic_arn }}"
 
 
 Outputs:

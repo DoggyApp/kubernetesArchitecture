@@ -21,6 +21,13 @@
     arch_dir: "/home/ec2-user/kubernetesArchitecture/kubernetes"
 
   tasks:
+
+    - name: Ensure /home/ec2-user/config directory exists
+      file:
+        path: /home/ec2-user/config
+        state: directory
+        mode: '0755'
+        
     - name: Update kubeconfig
       shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }} --profile eks-cluster-admin
 
@@ -38,11 +45,11 @@
           --output text | sed 's|https://||'
       register: oidc_url
 
-    - name: Render autoscaler role template
-      shell: |
-        export OIDC_URL={{ oidc_url.stdout }}
-        envsubst < {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
-
+    - name: Template the autoscaler role YAML
+      template:
+        src: kubernetes/autoscaler/cf-autoscaler-role.yaml.j2
+        dest: /home/ec2-user/config/cf-autoscaler-role-up.yaml
+        
     - name: Deploy autoscaler role stack
       shell: |
         aws cloudformation deploy \
@@ -58,10 +65,10 @@
           --output text
       register: autoscaler_role_arn
 
-    - name: Render autoscaler values
-      shell: |
-        export AUTOSC_ROLE_ARN={{ autoscaler_role_arn.stdout }}
-        envsubst < {{ arch_dir }}/autoscaler/autoscaler-values.yaml > {{ config_dir }}/autoscaler-values-up.yaml
+    - name: Template the autoscaler values
+      template:
+        src: "{{ arch_dir }}/autoscaler/autoscaler-values.yaml.j2"
+        dest: "{{ config_dir }}/autoscaler-values-up.yaml"
 
     - name: Add autoscaler Helm repo
       kubernetes.core.helm:
@@ -153,23 +160,28 @@
         values_files:
           - "{{ arch_dir }}/monitoring/promtail/promtail-values.yaml"
 
-    - name: Render SNS stack
-      shell: |
-        export EMAIL={{ email }}
-        export AWS_ID={{ aws_id }}
-        export OPENAI_KEY={{ openai_key }}
-        envsubst < {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
+    - name: Render the SNS stack
+      template:
+        src: "{{ arch_dir }}/monitoring/alerting/cf-sns.yaml.j2"
+        dest: "{{ config_dir }}/cf-sns-up.yaml"
 
     - name: Deploy SNS and secret stack
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-sns-up.yaml --stack-name sns-and-secret-doggy
 
-    - name: Get SNS and secret ARNs
+    - name: Register OpenAI secret ARN
       shell: |
-        export OPENAI_SECRET_ARN=$(aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" --output text)
-        export SNS_TOPIC_ARN=$(aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text)
+        aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" --output text
+      register: openai_secret_arn
+
+    - name: Register SNS ARN 
+      shell: |
+        aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
+      register: sns_topic_arn 
 
     - name: Render alert hook role
-      shell: envsubst < {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
+      template:
+        src: "{{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml.j2"
+        dest: "{{ config_dir }}/cf-alert-hook-role-up.yaml"
 
     - name: Deploy alert hook IAM role
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-alert-hook-role-up.yaml --stack-name alert-hook-iam-role --capabilities CAPABILITY_NAMED_IAM
@@ -182,14 +194,21 @@
           --output text
       register: alerter_role_arn
 
-    - name: Render and apply alert service account
+    - name: Render alert service account
+      template:
+        src: "{{ arch_dir }}/monitoring/alerting/alert-service-account.yaml.j2"
+        dest: "{{ config_dir }}/alert-service-account-up.yaml"
+
+    - name: Apply alert service account
       shell: |
-        export ALERTER_ROLE_ARN={{ alerter_role_arn.stdout }}
-        envsubst < {{ arch_dir }}/monitoring/alerting/alert-service-account.yaml > {{ config_dir }}/alert-service-account-up.yaml
         kubectl apply -f {{ config_dir }}/alert-service-account-up.yaml
 
-    - name: Render and apply alert pod
+    - name: Render alert pod
+      template:
+        src: "{{ arch_dir }}/monitoring/alerting/alert-pod.yaml.j2"
+        dest: "{{ config_dir }}/alert-pod-up.yaml"
+
+    - name: Apply alert pod
       shell: |
-        envsubst < {{ arch_dir }}/monitoring/alerting/alert-pod.yaml > {{ config_dir }}/alert-pod-up.yaml
         kubectl apply -f {{ config_dir }}/alert-pod-up.yaml
 ...

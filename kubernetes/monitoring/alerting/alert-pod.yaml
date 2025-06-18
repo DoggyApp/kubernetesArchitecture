@@ -23,7 +23,7 @@ spec:
             - name: LOKI_URL
               value: "http://loki.monitoring.svc:3100/loki/api/v1/query_range"
             - name: SNS_ARN
-              value: "$SNS_ARN"
+              value: "{{ sns_topic_arn }}"
           # Add AWS IAM role if using IRSA (optional)
           # env:
           #   - name: AWS_REGION
