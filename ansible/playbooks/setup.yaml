@@ -47,15 +47,15 @@
 
     - name: Get OIDC URL
       shell: |
-        aws eks describe-cluster \
+        export OIDC_URL=$(aws eks describe-cluster \
           --name {{ cluster_name }} \
           --query "cluster.identity.oidc.issuer" \
-          --output text | sed 's|https://||'
+          --output text | sed 's|https://||')
       register: oidc_url
 
     - name: Template the autoscaler role YAML
       shell: |
-        export OIDC_URL = "{{ oidc_url }}"
+        export OIDC_URL="{{ oidc_url }}"
         envsub {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
       environment:
         OIDC_URL: "{{ oidc_url }}"
