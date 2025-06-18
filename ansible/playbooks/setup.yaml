@@ -47,8 +47,8 @@
 
     - name: Template the autoscaler role YAML
       template:
-        src: kubernetes/autoscaler/cf-autoscaler-role.yaml.j2
-        dest: /home/ec2-user/config/cf-autoscaler-role-up.yaml
+        src: "{{ arch_dir }}/autoscaler/autoscaler-values.yaml.j2"
+        dest: "{{ config_dir }}/autoscaler-values-up.yaml"
         
     - name: Deploy autoscaler role stack
       shell: |
