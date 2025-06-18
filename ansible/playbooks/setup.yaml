@@ -47,10 +47,10 @@
 
     - name: Get OIDC URL
       shell: |
-        export OIDC_URL=$(aws eks describe-cluster \
+        aws eks describe-cluster \
           --name {{ cluster_name }} \
           --query "cluster.identity.oidc.issuer" \
-          --output text | sed 's|https://||')
+          --output text | sed 's|https://||'
       register: oidc_url
 
     - name: Template the autoscaler role YAML
