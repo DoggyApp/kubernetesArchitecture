@@ -56,7 +56,7 @@
     - name: Template the autoscaler role YAML
       shell: |
         export OIDC_URL="{{ oidc_url }}"
-        envsub {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
+        envsubst {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
       environment:
         OIDC_URL: "{{ oidc_url }}"
         
@@ -174,7 +174,7 @@
       shell: |
         export OPENAI_SECRET_ARN = "{{ openai_secret_arn }}"
         export SNS_TOPIC_ARN = "{{ sns_topic_arn }}"
-        envsub {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
+        envsubst {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
       environment: 
         OPENAI_SECRET_ARN: "{{ openai_secret_arn }}"
         SNS_TOPIC_ARN: "{{ sns_topic_arn }}"
@@ -193,9 +193,8 @@
       register: sns_topic_arn 
 
     - name: Render alert hook role
-      template:
-        src: "{{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml"
-        dest: "{{ config_dir }}/cf-alert-hook-role-up.yaml"
+      shell: |
+        envsubst {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
 
     - name: Deploy alert hook IAM role
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-alert-hook-role-up.yaml --stack-name alert-hook-iam-role --capabilities CAPABILITY_NAMED_IAM
