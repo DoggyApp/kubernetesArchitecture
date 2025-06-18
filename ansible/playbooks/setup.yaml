@@ -30,8 +30,8 @@
 
     - name: Export imporant variables 
       shell: | 
-        export EMAIL = {{ email }}
-        export AWS_ID = {{ aws_id }}
+        export EMAIL="{{ email }}"
+        export AWS_ID="{{ aws_id }}"
       environment:
         AWS_ID: "{{ aws_id }}"
         EMAIL: "{{ email }}"
