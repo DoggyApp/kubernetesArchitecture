@@ -64,7 +64,7 @@
         envsubst < {{ arch_dir }}/autoscaler/autoscaler-values.yaml > {{ config_dir }}/autoscaler-values-up.yaml
 
     - name: Add autoscaler Helm repo
-      community.kubernetes.helm_repository:
+      kubernetes.core.helm:
         name: autoscaler
         repo_url: https://kubernetes.github.io/autoscaler
 
@@ -72,7 +72,7 @@
       shell: helm repo update
 
     - name: Deploy Cluster Autoscaler
-      community.kubernetes.helm:
+      kubernetes.core.helm:
         name: cluster-autoscaler
         chart_ref: autoscaler/cluster-autoscaler
         release_namespace: kube-system
@@ -114,12 +114,12 @@
       shell: kubectl create namespace monitoring
 
     - name: Add Prometheus Helm repo
-      community.kubernetes.helm_repository:
+      kubernetes.core.helm:
         name: prometheus-stack
         repo_url: https://prometheus-community.github.io/helm-charts
 
     - name: Install Prometheus stack
-      community.kubernetes.helm:
+      kubernetes.core.helm:
         name: kube-prometheus-stack
         chart_ref: prometheus-community/kube-prometheus-stack
         release_namespace: monitoring
@@ -128,7 +128,7 @@
           - "{{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml"
 
     - name: Add Grafana Helm repo
-      community.kubernetes.helm_repository:
+      kubernetes.core.helm:
         name: Grafan
         repo_url: https://grafana.github.io/helm-charts
 
@@ -136,7 +136,7 @@
       shell: kubectl apply -f {{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml -n monitoring
 
     - name: Install Loki
-      community.kubernetes.helm:
+      kubernetes.core.helm:
         name: loki
         chart_ref: grafana/loki
         release_namespace: monitoring
@@ -145,7 +145,7 @@
           - "{{ arch_dir }}/monitoring/loki/loki-values.yaml"
 
     - name: Install Promtail
-      community.kubernetes.helm:
+      kubernetes.core.helm:
         name: promtail
         chart_ref: grafana/promtail
         release_namespace: monitoring
