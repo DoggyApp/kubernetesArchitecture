@@ -2,17 +2,17 @@
 - name: Deploy full Kubernetes stack to AWS using Ansible
   hosts: localhost
   connection: local
-  gather_facts: no
+  gather_facts: False
   vars_prompt:
     - name: email
       prompt: "We need your email to set up the SNS service, it won't go anywhere"
-      private: no
+      private: False
     - name: aws_id
       prompt: "We also need your AWS ID to set up everything, it won't go anywhere"
-      private: no
+      private: False
     - name: openai_key
       prompt: "Enter your OpenAI API key (you need to purchase credits on OpenAI for the integration to work, 2$ is more than enough for a demo)"
-      private: yes
+      private: True
   vars:
     cluster_name: "doggy-app-eks-cluster-0"
     nodegroup_name: "doggy-app-eks-ng-monitoring"
@@ -64,17 +64,21 @@
         envsubst < {{ arch_dir }}/autoscaler/autoscaler-values.yaml > {{ config_dir }}/autoscaler-values-up.yaml
 
     - name: Add autoscaler Helm repo
-      shell: helm repo add autoscaler https://kubernetes.github.io/autoscaler
+      community.kubernetes.helm_repository:
+        name: autoscaler
+        repo_url: https://kubernetes.github.io/autoscaler
 
     - name: Update Helm repos
       shell: helm repo update
 
-    - name: Install autoscaler
-      shell: |
-        helm upgrade --install cluster-autoscaler autoscaler/cluster-autoscaler \
-          --namespace kube-system \
-          --create-namespace \
-          -f {{ config_dir }}/autoscaler-values-up.yaml
+    - name: Deploy Cluster Autoscaler
+      community.kubernetes.helm:
+        name: cluster-autoscaler
+        chart_ref: autoscaler/cluster-autoscaler
+        release_namespace: kube-system
+        create_namespace: true
+        values_files:
+          - "{{ config_dir }}/autoscaler-values-up.yaml"
 
     - name: Pause for autoscaler setup
       pause:
@@ -110,39 +114,44 @@
       shell: kubectl create namespace monitoring
 
     - name: Add Prometheus Helm repo
-      shell: helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+      community.kubernetes.helm_repository:
+        name: prometheus-stack
+        repo_url: https://prometheus-community.github.io/helm-charts
 
     - name: Install Prometheus stack
-      shell: |
-        helm upgrade --install kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-          --namespace monitoring \
-          -f {{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml
+      community.kubernetes.helm:
+        name: kube-prometheus-stack
+        chart_ref: prometheus-community/kube-prometheus-stack
+        release_namespace: monitoring
+        create_namespace: true
+        values_files:
+          - "{{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml"
 
     - name: Add Grafana Helm repo
-      shell: helm repo add grafana https://grafana.github.io/helm-charts
+      community.kubernetes.helm_repository:
+        name: Grafan
+        repo_url: https://grafana.github.io/helm-charts
 
     - name: Apply Loki alert rules
       shell: kubectl apply -f {{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml -n monitoring
 
     - name: Install Loki
-      shell: |
-        helm upgrade --install loki grafana/loki \
-          -n monitoring \
-          -f {{ arch_dir }}/monitoring/loki/loki-values.yaml
+      community.kubernetes.helm:
+        name: loki
+        chart_ref: grafana/loki
+        release_namespace: monitoring
+        create_namespace: true
+        values_files:
+          - "{{ arch_dir }}/monitoring/loki/loki-values.yaml"
 
     - name: Install Promtail
-      shell: |
-        helm upgrade --install promtail grafana/promtail \
-          --namespace monitoring \
-          --create-namespace \
-          -f {{ arch_dir }}/monitoring/promtail/promtail-values.yaml
-
-    - name: Update Grafana values
-      shell: |
-        helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-          -n monitoring \
-          -f {{ arch_dir }}/monitoring/prometheus/grafana-values.yaml \
-          --reuse-values
+      community.kubernetes.helm:
+        name: promtail
+        chart_ref: grafana/promtail
+        release_namespace: monitoring
+        create_namespace: true
+        values_files:
+          - "{{ arch_dir }}/monitoring/promtail/promtail-values.yaml"
 
     - name: Render SNS stack
       shell: |
@@ -183,10 +192,4 @@
       shell: |
         envsubst < {{ arch_dir }}/monitoring/alerting/alert-pod.yaml > {{ config_dir }}/alert-pod-up.yaml
         kubectl apply -f {{ config_dir }}/alert-pod-up.yaml
-
-    - name: Update Alertmanager config
-      shell: |
-        helm upgrade kube-prometheus-stack prometheus-community/kube-prometheus-stack \
-          --namespace monitoring \
-          -f {{ arch_dir }}/monitoring/prometheus/alert-manager-values.yaml \
-          --reuse-values
+...

@@ -9,7 +9,29 @@ prometheus:
       workload: monitoring
     maximumStartupDurationSeconds: 300
 
+
 alertmanager:
+  config:
+    global:
+      resolve_timeout: 5m
+    route:
+      group_by: ['namespace']
+      group_wait: 30s
+      group_interval: 5m
+      repeat_interval: 12h
+      receiver: 'webhook'
+      routes:
+        - matchers:
+            - alertname = "Watchdog"
+          receiver: 'webhook'
+    receivers:
+      - name: 'webhook'
+        webhook_configs:
+          - url: 'http://alert-analyzer-service.monitoring.svc.cluster.local/webhook'
+    inhibit_rules:
+      - source_matchers: ['severity = critical']
+        target_matchers: ['severity = warning|info']
+        equal: ['namespace', 'alertname']
   alertmanagerSpec:
     nodeSelector:
       workload: monitoring
@@ -27,6 +49,13 @@ grafana:
       operator: "Equal"
       value: "monitoring"
       effect: "NoSchedule"
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      access: proxy
+      url: http://loki.monitoring.svc:3100/loki/api/v1/query_range
+      isDefault: false
+      editable: true
 
 kubeStateMetrics:
   nodeSelector:
