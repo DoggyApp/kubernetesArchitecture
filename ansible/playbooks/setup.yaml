@@ -56,7 +56,7 @@
     - name: Template the autoscaler role YAML
       shell: |
         export OIDC_URL = {{ oidc_url }}
-        envsub {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml.j2" > {{ config_dir }}/cf-autoscaler-role-up.yaml
+        envsub {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml" > {{ config_dir }}/cf-autoscaler-role-up.yaml
       environment:
         OIDC_URL: "{{ oidc_url }}"
         
@@ -194,7 +194,7 @@
 
     - name: Render alert hook role
       template:
-        src: "{{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml.j2"
+        src: "{{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml"
         dest: "{{ config_dir }}/cf-alert-hook-role-up.yaml"
 
     - name: Deploy alert hook IAM role
