@@ -49,7 +49,7 @@
 
     - name: Template the autoscaler role YAML
       shell: |
-        envsubst {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
+        envsubst < {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
       environment:
         OIDC_URL: "{{ oidc_url }}"
         AWS_ID: "{{ aws_id }}"
@@ -166,7 +166,7 @@
 
     - name: Render the SNS stack
       shell: |
-        envsubst {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
+        envsubst < {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
       environment: 
         OPENIA_KEY: "{{ openai_secret_arn }}"
         EMAIL: "{{ email }}"
@@ -186,7 +186,7 @@
 
     - name: Render alert hook role
       shell: |
-        envsubst {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
+        envsubst < {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
       environment: 
         AWS_ID: "{{ aws_id }}"
         OIDC_URL: "{{ oidc_url }}"
