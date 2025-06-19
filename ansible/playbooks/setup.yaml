@@ -7,9 +7,11 @@
     - name: email
       prompt: "We need your email to set up the SNS service, it won't go anywhere"
       private: False
+      default: "idanzigm@gmail.com"
     - name: aws_id
       prompt: "We also need your AWS ID to set up everything, it won't go anywhere"
       private: False
+      default: "109798190983"
     - name: openai_key
       prompt: "Enter your OpenAI API key (you need to purchase credits on OpenAI for the integration to work, 2$ is more than enough for a demo)"
       private: True
@@ -27,14 +29,6 @@
         path: /home/ec2-user/config
         state: directory
         mode: '0755'
-
-    - name: Export imporant variables 
-      shell: | 
-        export EMAIL="{{ email }}"
-        export AWS_ID="{{ aws_id }}"
-      environment:
-        AWS_ID: "{{ aws_id }}"
-        EMAIL: "{{ email }}"
         
     - name: Update kubeconfig
       shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }} --profile eks-cluster-admin
@@ -55,10 +49,10 @@
 
     - name: Template the autoscaler role YAML
       shell: |
-        export OIDC_URL="{{ oidc_url }}"
         envsubst {{ arch_dir }}/autoscaler/cf-autoscaler-role.yaml > {{ config_dir }}/cf-autoscaler-role-up.yaml
       environment:
         OIDC_URL: "{{ oidc_url }}"
+        AWS_ID: "{{ aws_id }}"
         
     - name: Deploy autoscaler role stack
       shell: |
@@ -172,22 +166,20 @@
 
     - name: Render the SNS stack
       shell: |
-        export OPENAI_SECRET_ARN = "{{ openai_secret_arn }}"
-        export SNS_TOPIC_ARN = "{{ sns_topic_arn }}"
         envsubst {{ arch_dir }}/monitoring/alerting/cf-sns.yaml > {{ config_dir }}/cf-sns-up.yaml
       environment: 
-        OPENAI_SECRET_ARN: "{{ openai_secret_arn }}"
-        SNS_TOPIC_ARN: "{{ sns_topic_arn }}"
+        OPENIA_KEY: "{{ openai_secret_arn }}"
+        EMAIL: "{{ email }}"
 
     - name: Deploy SNS and secret stack
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-sns-up.yaml --stack-name sns-and-secret-doggy
 
-    - name: Register OpenAI secret ARN
+    - name: Return secret ARN
       shell: |
         aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" --output text
       register: openai_secret_arn
 
-    - name: Register SNS ARN 
+    - name: Return SNS ARN 
       shell: |
         aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
       register: sns_topic_arn 
@@ -195,6 +187,11 @@
     - name: Render alert hook role
       shell: |
         envsubst {{ arch_dir }}/monitoring/alerting/cf-alert-hook-role.yaml > {{ config_dir }}/cf-alert-hook-role-up.yaml
+      environment: 
+        AWS_ID: "{{ aws_id }}"
+        OIDC_URL: "{{ oidc_url }}"
+        OPENIA_KEY: "{{ openai_secret_arn }}"
+        SNS_TOPIC_ARN: "{{ sns_topic_arn }}"
 
     - name: Deploy alert hook IAM role
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-alert-hook-role-up.yaml --stack-name alert-hook-iam-role --capabilities CAPABILITY_NAMED_IAM
