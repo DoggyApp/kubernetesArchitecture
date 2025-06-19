@@ -29,16 +29,20 @@
         path: /home/ec2-user/config
         state: directory
         mode: '0755'
-        
+
+# this should be done with AWS Module 
     - name: Update kubeconfig
       shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }} --profile eks-cluster-admin
 
+#This should be done with Kube module 
     - name: Install Helm
       shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+# is there an eks module 
     - name: Associate IAM OIDC provider
       shell: eksctl utils associate-iam-oidc-provider --cluster {{ cluster_name }} --approve
 
+#AWS Module 
     - name: Get OIDC URL
       shell: |
         aws eks describe-cluster \
@@ -54,13 +58,16 @@
         OIDC_URL: "{{ oidc_url.stdout }}"
         AWS_ID: "{{ aws_id }}"
         
-    - name: Deploy autoscaler role stack
-      shell: |
-        aws cloudformation deploy \
-          --template-file {{ config_dir }}/cf-autoscaler-role-up.yaml \
-          --stack-name cluster-autoscaler-iam-role \
-          --capabilities CAPABILITY_NAMED_IAM
+# Make sure this works 
+    - name: Deploy autoscaler role with CloudFormation
+      amazon.aws.cloudformation:
+        stack_name: cluster-autoscaler-iam-role
+        template_body: "{{ lookup('file', config_dir + '/cf-autoscaler-role-up.yaml') }}"
+        state: present
+        capabilities:
+          - CAPABILITY_NAMED_IAM
 
+# AWS Module
     - name: Get autoscaler role ARN
       shell: |
         aws cloudformation describe-stacks \
@@ -74,15 +81,14 @@
         src: "{{ arch_dir }}/autoscaler/autoscaler-values.yaml.j2"
         dest: "{{ config_dir }}/autoscaler-values-up.yaml"
 
+# Does this work 
     - name: Add autoscaler Helm repo
-      kubernetes.core.helm:
+      kubernetes.core.helm_repository:
         name: autoscaler
         repo_url: https://kubernetes.github.io/autoscaler
 
-    - name: Update Helm repos
-      shell: helm repo update
-
-    - name: Deploy Cluster Autoscaler
+# is it helm_repository to get the repos and then just core.helm to install them? 
+    - name: Install cluster autoscaler via Helm
       kubernetes.core.helm:
         name: cluster-autoscaler
         chart_ref: autoscaler/cluster-autoscaler
@@ -90,6 +96,7 @@
         create_namespace: true
         values_files:
           - "{{ config_dir }}/autoscaler-values-up.yaml"
+        state: present
 
     - name: Pause for autoscaler setup
       pause:
@@ -124,11 +131,13 @@
     - name: Create monitoring namespace
       shell: kubectl create namespace monitoring
 
+# Do i need helm_repository to do this? 
     - name: Add Prometheus Helm repo
       kubernetes.core.helm:
         name: prometheus-stack
         repo_url: https://prometheus-community.github.io/helm-charts
 
+# does this work 
     - name: Install Prometheus stack
       kubernetes.core.helm:
         name: kube-prometheus-stack
@@ -138,6 +147,7 @@
         values_files:
           - "{{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml"
 
+# do i need helm_repository to do this 
     - name: Add Grafana Helm repo
       kubernetes.core.helm:
         name: Grafan
@@ -146,6 +156,7 @@
     - name: Apply Loki alert rules
       shell: kubectl apply -f {{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml -n monitoring
 
+# Does this work 
     - name: Install Loki
       kubernetes.core.helm:
         name: loki
@@ -155,6 +166,7 @@
         values_files:
           - "{{ arch_dir }}/monitoring/loki/loki-values.yaml"
 
+# Does this work 
     - name: Install Promtail
       kubernetes.core.helm:
         name: promtail
@@ -171,14 +183,17 @@
         OPENIA_KEY: "{{ openai_secret_arn }}"
         EMAIL: "{{ email }}"
 
+# Use AWS Module 
     - name: Deploy SNS and secret stack
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-sns-up.yaml --stack-name sns-and-secret-doggy
 
+# do i need an AWS module for this 
     - name: Return secret ARN
       shell: |
         aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='OpenAISecretArn'].OutputValue" --output text
       register: openai_secret_arn
 
+# do i need an AWS module for this 
     - name: Return SNS ARN 
       shell: |
         aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
@@ -193,9 +208,11 @@
         OPENIA_KEY: "{{ openai_secret_arn }}"
         SNS_TOPIC_ARN: "{{ sns_topic_arn }}"
 
+# Use AWS Module for this 
     - name: Deploy alert hook IAM role
       shell: aws cloudformation deploy --template-file {{ config_dir }}/cf-alert-hook-role-up.yaml --stack-name alert-hook-iam-role --capabilities CAPABILITY_NAMED_IAM
 
+#AWS module 
     - name: Get alert hook role ARN
       shell: |
         aws cloudformation describe-stacks \
