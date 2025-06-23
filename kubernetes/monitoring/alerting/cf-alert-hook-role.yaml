@@ -24,7 +24,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - secretsmanager:GetSecretValue
-                Resource: "$OPENIA_KEY"
+                Resource: "$OPENAI_SECRET_ARN"
               - Effect: Allow
                 Action:
                   - sns:Publish

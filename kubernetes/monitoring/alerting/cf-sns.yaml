@@ -15,18 +15,18 @@ Resources:
       Endpoint: $EMAIL 
       TopicArn: !Ref SNSTopic
 
-  OpenAISecret:
-    Type: AWS::SecretsManager::Secret
-    Properties:
-      Name: openAI-key-doggy
-      Description: open AI api key 
-      SecretString: '{"openai-api-key-doggy":"$OPENIA_KEY"}'
+  # OpenAISecret:
+  #   Type: AWS::SecretsManager::Secret
+  #   Properties:
+  #     Name: openAI-key-doggy
+  #     Description: open AI api key 
+  #     SecretString: '{"openai-api-key-doggy":"$OPENIA_KEY"}'
 
 Outputs:
   SNSTopicArn:
     Description: ARN of the created SNS Topic
     Value: !Ref SNSTopic
 
-  OpenAISecretArn:
-    Description: ARN of the cOpenAI Secret key 
-    Value: !Ref OpenAISecret
+  # OpenAISecretArn:
+  #   Description: ARN of the cOpenAI Secret key 
+  #   Value: !Ref OpenAISecret
