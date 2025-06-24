@@ -167,8 +167,6 @@
             create_namespace: true
             values_files:
               - "{{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml"
-          async: 300 
-          poll: 0 
           register: deploying_prometheus 
 
 # Does this work 
@@ -180,8 +178,6 @@
             create_namespace: true
             values_files:
               - "{{ arch_dir }}/monitoring/loki/loki-values.yaml"
-          async: 300 
-          poll: 0 
           register: deploying_loki
 
 # Does this work 
@@ -193,38 +189,7 @@
             create_namespace: true
             values_files:
               - "{{ arch_dir }}/monitoring/promtail/promtail-values.yaml"
-          async: 300 
-          poll: 0 
           register: deploying_promtail
-
-############## WAIT #########################################
-
-    - name: Wait for deployment 
-      block:
-
-        - name: Wait for prometheus to deploy
-          async_status:
-            jid: "{{ deploying_prometheus.ansible_job_id }}"
-          register: deploying_prometheus_status
-          until: deploying_prometheus.finished
-          retries: 60
-          delay: 5
-
-        - name: Wait for loki to deploy
-          async_status:
-            jid: "{{ deploying_loki.ansible_job_id }}"
-          register: deploying_loki_status
-          until: deploying_prometheus.finished
-          retries: 60
-          delay: 5
-
-        - name: Wait for promtail to deploy
-          async_status:
-            jid: "{{ deploying_promtail.ansible_job_id }}"
-          register: deploying_promtail_status
-          until: deploying_promtail.finished
-          retries: 60
-          delay: 5
 
 
 
