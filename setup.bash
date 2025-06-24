@@ -1,3 +1,10 @@
+sudo amazon-linux-extras enable epel
+sudo yum install -y epel-release
+sudo yum install -y https://repo.ius.io/ius-release-el7.rpm
+
+
+
+
 #!/bin/bash
 
 # get the user's email 
