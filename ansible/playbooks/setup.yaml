@@ -140,14 +140,14 @@
 # Do i need helm_repository to do this? 
         - name: Add Prometheus Helm repo
           kubernetes.core.helm_repository:
-            name: prometheus-stack
+            name: prometheus-community
             repo_url: https://prometheus-community.github.io/helm-charts
           register: installing_prometheus_repo
 
 # do i need helm_repository to do this 
         - name: Add Grafana Helm repo
           kubernetes.core.helm_repository:
-            name: Grafan
+            name: Grafana
             repo_url: https://grafana.github.io/helm-charts
           register: installing_grafana_repo
 
