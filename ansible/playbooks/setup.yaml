@@ -239,7 +239,6 @@
               --query "Stacks[0].Outputs[?OutputKey=='ClusterAutoscalerRoleArn'].OutputValue" \
               --output text
           register: autoscaler_role_arn
-          when: deploying_autoscaler_stack.finished
 
         - name: Template the autoscaler values
           template:
@@ -251,7 +250,7 @@
 # do i need an AWS module for this 
         - name: Return SNS ARN 
           shell: |
-            aws cloudformation describe-stacks --stack-name sns-and-secret-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
+            aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
           register: sns_topic_arn
 
         - name: Render alert hook role yaml 
