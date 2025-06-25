@@ -115,6 +115,11 @@
           async: 300 
           poll: 0 
 
+        - name: Set autoscaler stack job ID if async used
+          set_fact:
+            autoscaler_stack_job_id: "{{ deploying_autoscaler_stack.ansible_job_id | default('') }}"
+
+
 # Use AWS Module 
         - name: Deploy SNS 
           amazon.aws.cloudformation:
@@ -124,6 +129,11 @@
           register: deploying_sns_stack
           async: 300 
           poll: 0 
+
+        - name: Set SNS stack job ID if async used
+          set_fact:
+            sns_stack_job_id: "{{ deploying_sns_stack.ansible_job_id | default('') }}"
+
 
 ##########################################################
 ########### INSTALL REPOSITORIES ########################
@@ -203,7 +213,8 @@
           register: deploying_autoscaler_stack_status
           until: deploying_autoscaler_stack.finished
           retries: 60
-          delay: 5
+          delay: 5 
+          when: autoscaler_stack_job_id != ''
 
         - name: Wait for sns to deploy ######
           async_status:
@@ -212,6 +223,7 @@
           until: deploying_sns_stack.finished
           retries: 60
           delay: 5
+          when: sns_stack_job_id != ''
 
 
 #########################################################################
@@ -266,15 +278,13 @@
             values_files:
               - "{{ config_dir }}/autoscaler-values-up.yaml"
             state: present
-          async: 300 
-          poll: 0 
 
         - name:  Deploy alert hook IAM role
           amazon.aws.cloudformation:
             stack_name: alert-hook-iam-role
             template_body: "{{ lookup('file', config_dir + '/cf-alert-hook-role-up.yaml') }}"
             state: present
-          register: deploying_aler_stack
+          register: deploying_alert_stack
 
 
     - name: Deploy the alert hook
