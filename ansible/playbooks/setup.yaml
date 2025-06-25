@@ -211,7 +211,7 @@
           async_status:
             jid: "{{ autoscaler_stack_job_id }}"
           register: deploying_autoscaler_stack_status
-          until: deploying_autoscaler_stack.finished
+          until: deploying_autoscaler_stack_status.finished
           retries: 60
           delay: 5 
           when: autoscaler_stack_job_id != ''
@@ -220,7 +220,7 @@
           async_status:
             jid: "{{ sns_stack_job_id }}"
           register: deploying_sns_stack_status
-          until: deploying_sns_stack.finished
+          until: deploying_sns_stack_status.finished
           retries: 60
           delay: 5
           when: sns_stack_job_id != ''
