@@ -147,7 +147,7 @@
 # do i need helm_repository to do this 
         - name: Add Grafana Helm repo
           kubernetes.core.helm_repository:
-            name: Grafana
+            name: grafana
             repo_url: https://grafana.github.io/helm-charts
           register: installing_grafana_repo
 
@@ -180,7 +180,6 @@
               - "{{ arch_dir }}/monitoring/loki/loki-values.yaml"
           register: deploying_loki
 
-# Does this work 
         - name: Deploying Promtail stack
           kubernetes.core.helm:
             name: promtail
