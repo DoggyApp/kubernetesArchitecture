@@ -112,8 +112,8 @@
             capabilities:
               - CAPABILITY_NAMED_IAM
           register: deploying_autoscaler_stack
-          # async: 300 
-          # poll: 0 
+          async: 300 
+          poll: 0 
 
 # Use AWS Module 
         - name: Deploy SNS 
@@ -122,8 +122,8 @@
             template_body: "{{ lookup('file', config_dir + '/cf-sns-up.yaml') }}"
             state: present
           register: deploying_sns_stack
-          # async: 300 
-          # poll: 0 
+          async: 300 
+          poll: 0 
 
 ##########################################################
 ########### INSTALL REPOSITORIES ########################
