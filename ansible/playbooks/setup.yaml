@@ -209,7 +209,7 @@
 
         - name: Wait for autoscaler role to deploy
           async_status:
-            jid: "{{ deploying_autoscaler_stack.ansible_job_id }}"
+            jid: "{{ autoscaler_stack_job_id }}"
           register: deploying_autoscaler_stack_status
           until: deploying_autoscaler_stack.finished
           retries: 60
@@ -218,7 +218,7 @@
 
         - name: Wait for sns to deploy ######
           async_status:
-            jid: "{{ deploying_sns_stack.ansible_job_id }}"
+            jid: "{{ sns_stack_job_id }}"
           register: deploying_sns_stack_status
           until: deploying_sns_stack.finished
           retries: 60
