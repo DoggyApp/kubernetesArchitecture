@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: doggy-ingress
-  namespace: default
+  namespace: ingress-nginx
   annotations:
     # Apply rewrite-target only to /api/* paths
     nginx.ingress.kubernetes.io/rewrite-target: /$1
