@@ -337,7 +337,7 @@
             namespace: ingress-nginx
             name: doggy-ingress
           register: ingress_status
-          until: doggy_status.resources | length > 0
+          until: ingress_status.resources | length > 0
           retries: 30
           delay: 5
 
