@@ -2,6 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: 
   name: webapp 
+  namespace: default
 spec: 
   selector: 
     matchLabels: 
@@ -36,6 +37,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: 
   name: registry
+  namespace: default
 spec: 
   selector: 
     matchLabels: 

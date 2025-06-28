@@ -352,13 +352,13 @@
               --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
               --dry-run=client -o yaml | kubectl apply -f -
 
-        - name: Apply alert service account
+        - name: Apply web app pods 
           kubernetes.core.k8s:
             state: present
             src: "{{ arch_dir }}/default/pods.yaml"
             apply: True 
 
-        - name: Apply alert service account
+        - name: Apply web app services 
           kubernetes.core.k8s:
             state: present
             src: "{{ arch_dir }}/default/services.yaml"
