@@ -330,12 +330,15 @@
 
     - name: Deploy pods 
       block:  
-        - name: Wait for ingress to deploy 
-          async_status:
-            jid: "{{ deploying_ingress.ansible_job_id }}"
-          register: deploying_ingress_status
-          until: deploying_ingress.finished
-          retries: 60
+        - name: Wait for ingress to become available
+          kubernetes.core.k8s_info:
+            api_version: networking.k8s.io/v1
+            kind: Ingress
+            namespace: ingress-nginx
+            name: doggy-ingress
+          register: ingress_status
+          until: ingress_status.resources | length > 0
+          retries: 30
           delay: 5
 
         - name: Get LoadBalancer hostname
