@@ -259,8 +259,8 @@
           environment: 
             AWS_ID: "{{ aws_id }}"
             OIDC_URL: "{{ oidc_url.stdout }}"
-            OPENAI_SECRET_ARN: "{{ openai_secret_arn }}"
-            SNS_TOPIC_ARN: "{{ sns_topic_arn }}"
+            OPENAI_SECRET_ARN: "{{ openai_secret_arn.stdout }}"
+            SNS_TOPIC_ARN: "{{ sns_topic_arn.stdout }}"
 
 #########################################################################
 ############# Deploy Second Batch ########################
