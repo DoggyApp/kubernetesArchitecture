@@ -311,17 +311,10 @@
             src: "{{ config_dir }}/alert-service-account-up.yaml"
             apply: True 
 
-        - name: Render alert pod
+        - name: Render alert pod config 
           template:
             src: "{{ arch_dir }}/monitoring/alerting/alert-pod.yaml.j2"
             dest: "{{ config_dir }}/alert-pod-up.yaml"
-
-
-        - name: Apply alert service account
-          kubernetes.core.k8s:
-            state: present
-            src: "{{ config_dir }}/alert-pod-up.yaml"
-            apply: True 
 
 
  #################################################################
@@ -350,6 +343,12 @@
             kubectl create configmap frontend-config \
               --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
               --dry-run=client -o yaml | kubectl apply -f -
+
+        - name: Create webhook 
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ config_dir }}/alert-pod-up.yaml"
+            apply: True 
 
         - name: Apply web app pods 
           kubernetes.core.k8s:
