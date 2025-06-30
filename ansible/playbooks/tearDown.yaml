@@ -4,6 +4,15 @@
   connection: local
   gather_facts: False
 
+
+  vars:
+    cluster_name: "doggy-app-eks-cluster-0"
+    nodegroup_name: "doggy-app-eks-ng-monitoring"
+    region: "us-east-1"
+    config_dir: "/home/ec2-user/config"
+    arch_dir: "/home/ec2-user/kubernetesArchitecture/kubernetes"
+
+    
   tasks:
 
     - name: Delete doggy ingress
