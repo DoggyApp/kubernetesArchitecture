@@ -1,0 +1,88 @@
+---
+- name: Tear down the full Kubernetes stack on AWS using Ansible
+  hosts: localhost
+  connection: local
+  gather_facts: False
+
+  tasks:
+
+    - name: Delete doggy ingress
+      kubernetes.core.k8s:
+        state: absent
+        kind: Ingress
+        namespace: ingress-nginx
+        name: doggy-ingress
+
+    - name: Uninstall Promtail stack
+      kubernetes.core.helm:
+        name: promtail
+        release_namespace: monitoring
+        state: absent
+
+    - name: Uninstall Loki stack
+      kubernetes.core.helm:
+        name: loki
+        release_namespace: monitoring
+        state: absent
+
+    - name: Uninstall Prometheus stack
+      kubernetes.core.helm:
+        name: kube-prometheus-stack
+        release_namespace: monitoring
+        state: absent
+
+    - name: Uninstall cluster autoscaler
+      kubernetes.core.helm:
+        name: cluster-autoscaler
+        release_namespace: kube-system
+        state: absent
+
+    - name: Delete SNS CloudFormation stack
+      amazon.aws.cloudformation:
+        stack_name: sns-doggy
+        state: absent
+
+    - name: Delete autoscaler role CloudFormation stack
+      amazon.aws.cloudformation:
+        stack_name: cluster-autoscaler-iam-role
+        state: absent
+
+    - name: Delete Loki alert rules
+      shell: kubectl delete -f "{{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml" -n monitoring
+      ignore_errors: true
+
+    - name: Delete alert hook IAM role CloudFormation stack
+      amazon.aws.cloudformation:
+        stack_name: alert-hook-iam-role
+        state: absent
+
+    - name: Delete web app pods
+      kubernetes.core.k8s:
+        state: absent
+        src: "{{ arch_dir }}/default/pods.yaml"
+
+    - name: Delete web app services
+      kubernetes.core.k8s:
+        state: absent
+        src: "{{ arch_dir }}/default/services.yaml"
+
+    - name: Delete ingress-nginx namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: ingress-nginx
+        state: absent
+
+    - name: Delete monitoring namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: monitoring
+        state: absent
+
+    - name: Delete config directory
+      file:
+        path: "/home/ec2-user/config"
+        state: absent
+
+...

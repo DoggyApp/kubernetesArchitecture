@@ -168,7 +168,7 @@
 
     - name: Deploy Repos 
       block: 
-# does this work 
+
         - name: Deploy Prometheus stack
           kubernetes.core.helm:
             name: kube-prometheus-stack
@@ -179,7 +179,7 @@
               - "{{ arch_dir }}/monitoring/prometheus/prometheus-values.yaml"
           register: deploying_prometheus 
 
-# Does this work 
+
         - name: deploying Loki stack
           kubernetes.core.helm:
             name: loki
@@ -247,7 +247,6 @@
           register: autoscaler_template
 
 
-# do i need an AWS module for this 
         - name: Return SNS ARN 
           shell: |
             aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
