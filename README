@@ -81,14 +81,16 @@ This project provides an infrastructure-as-code solution for deploying a full st
     🔐 NGINX Ingress Controller has TLS configured to terminate in the controller. (though traffic inside the cluster is unencrypted). 
 
     🔐 NGINX files and directories are owned by root. 
+
+    🔐 Ingress config has rate limits to deter scanners. 
+
+    🔐 Ingress config returned 403 for specific bad urls such as "development-server". 
+
+    🔐 Ingress config has coniguration-snippets to prevent XSS attacks, clickjacking attacks and MIME attacks. 
     
     🔐 Grafan is not exposed by the ingress controller, and is only accessible through port forwarding with an SSM session, or from within the cluster. 
 
-    🔐 Wildcard masks were removed from the ingress controller and all end points were specifically routed to. 
+    ⚠️ WARNING: There need to be restrictions placed on the the Kubernetes DNS so that API calls across namespaces cannot be made from the publicly accessible pods. 
 
-    ⚠️ WARNING: Containers and nodes need to be hardened after I had set up logging, I found that an intuder was making illicite API calls from my webapp container. 
 
-    ⚠️ WARNING: There need to be restrictions placed on the the DNS so that API calls across namespaces cannot be made from the publicly accessible pods. 
-
-    ⚠️ WARNING: The open-api key in the alert-analyser is stored in plain text after being called from the secret manager, if you place it into the setup.bash script it will also be stored in plain text. A security group blocks all ingress to the mgmt host and is only reachable by SSM session, but this is still a security concern. The alert analyzer is open on port 5000 and is a greater security concern. 
 
