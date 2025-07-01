@@ -6,24 +6,38 @@ metadata:
   annotations:
     # Apply rewrite-target only to /api/* paths
     nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "10"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "10"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    nginx.ingress.kubernetes.io/limit-rpm: "60"  # 60 requests per minute
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
+    nginx.ingress.kubernetes.io/limit-exempt: "127.0.0.1"
+    nginx.ingress.kubernetes.io/server-snippet: |
+      if ($request_uri ~* "development-server|internal|admin|debug") {
+        return 403;
+      }
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-XSS-Protection: 1; mode=block";
+      more_set_headers "X-Content-Type-Options: nosniff";
 spec:
   ingressClassName: nginx
   rules:
   - http:
       paths:
         # For /api/ paths, we want to strip the /api prefix
-        - path: /api/registry/(.*)
-          pathType: ImplementationSpecific
+        - path: ^/api/registry/(.*)
+          pathType: Prefix
           backend:
             service:
               name: registry-service
               port:
                 number: 8080
         - path: /
-          pathType: ImplementationSpecific
+          pathType: Prefix 
           backend:
             service:
               name: doggy-webapp
               port:
                 number: 80
-
