@@ -72,8 +72,8 @@
 
         - name: Apply ingress 
           shell: kubectl apply -k "{{ arch_dir }}/ingress/"
-          async: 300 
-          poll: 0 
+          # async: 300 
+          # poll: 0 
           register: deploying_ingress 
 
 
