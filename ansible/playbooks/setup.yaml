@@ -362,4 +362,8 @@
             src: "{{ arch_dir }}/default/services.yaml"
             apply: True 
 
+        - name: Echo lb_host 
+          shell: | 
+            echo {{ lb_host }}
+
 ...
