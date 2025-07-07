@@ -2,7 +2,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: doggy-ingress
-  namespace: ingress-nginx  ingress-nginx
+  namespace: default
   annotations:
     nginx.ingress.kubernetes.io/proxy-read-timeout: "10"
     nginx.ingress.kubernetes.io/proxy-send-timeout: "10"
