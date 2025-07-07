@@ -21,6 +21,21 @@
         kind: Ingress
         namespace: ingress-nginx
         name: doggy-ingress
+      ignore_errors: true
+
+    - name: Uninstall ingress-nginx Helm release
+      kubernetes.core.helm:
+        name: ingress-nginx
+        release_namespace: ingress-nginx
+        state: absent
+      ignore_errors: true  
+
+    - name: Delete ingress-nginx namespace
+      kubernetes.core.k8s:
+        state: absent
+        kind: Namespace
+        name: ingress-nginx
+      ignore_errors: true  
 
     - name: Uninstall Promtail stack
       kubernetes.core.helm:
