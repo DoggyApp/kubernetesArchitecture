@@ -338,7 +338,7 @@
 
         - name: Get LoadBalancer hostname
           shell: |
-            kubectl get ingress doggy-ingress -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            kubectl get ingress doggy-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           register: lb_host
 
         - name: Create frontend config map
