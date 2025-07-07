@@ -75,6 +75,9 @@
           # async: 300 
           # poll: 0 
           register: deploying_ingress 
+          retries: 5
+          delay: 10
+          until: deploying_ingress.rc == 0
 
 
 #########################################################################
