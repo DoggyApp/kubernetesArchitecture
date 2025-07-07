@@ -347,6 +347,13 @@
               --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
               --dry-run=client -o yaml | kubectl apply -f -
 
+        - name: Create alerter config map
+          shell: |
+            kubectl create configmap alerter-config \
+              --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
+              --namespace=monitoring \
+              --dry-run=client -o yaml | kubectl apply -f -
+
         - name: Create webhook 
           kubernetes.core.k8s:
             state: present

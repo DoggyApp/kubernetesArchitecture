@@ -27,7 +27,7 @@ spec:
             - name: LOAD_BALANCER_URL
               valueFrom:
                 configMapKeyRef:
-                  name: frontend-config
+                  name: alerter-config
                   key: LOAD_BALANCER_URL
           # Add AWS IAM role if using IRSA (optional)
           # env:
