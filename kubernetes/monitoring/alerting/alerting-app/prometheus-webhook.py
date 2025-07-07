@@ -30,15 +30,13 @@ app.logger.setLevel(gunicorn_logger.level)
 LOKI_URL = os.getenv("LOKI_URL", "http://localhost:3100/loki/api/v1/query_range")
 OPENAI_API_URL = "https://api.openai.com/v1/chat/completions"
 SNS_TOPIC_ARN = os.getenv("SNS_ARN", "arn:aws:sns:us-east-1:109798190983:doggy-alerts")
-LB_HOST = os.getenv("LB_HOST")
+LB_HOST = os.getenv("LOAD_BALANCER_URL")
 
 app.logger.info(LOKI_URL)
 app.logger.info(OPENAI_API_URL)
 app.logger.info(SNS_TOPIC_ARN)
 app.logger.info(LB_HOST)
 
-
-notify_user("Host Url", LB_HOST)
 
 def get_openai_key():
     app.logger.info("inside get openAI key")
@@ -220,4 +218,5 @@ def handle_alert():
     
 
 if __name__ == "__main__":
+    notify_user("Host Url", LB_HOST)
     app.run(host="0.0.0.0", port=5000)

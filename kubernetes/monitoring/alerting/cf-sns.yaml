@@ -8,20 +8,6 @@ Resources:
       TopicName: doggy-alerts
       DisplayName: "Doggy Alerts"
 
-  SNSEmailSubscription:
-    Type: AWS::SNS::Subscription
-    Properties:
-      Protocol: email
-      Endpoint: $EMAIL 
-      TopicArn: !Ref SNSTopic
-
-  # OpenAISecret:
-  #   Type: AWS::SecretsManager::Secret
-  #   Properties:
-  #     Name: openAI-key-doggy
-  #     Description: open AI api key 
-  #     SecretString: '{"openai-api-key-doggy":"$OPENIA_KEY"}'
-
 Outputs:
   SNSTopicArn:
     Description: ARN of the created SNS Topic

@@ -29,10 +29,6 @@ spec:
                 configMapKeyRef:
                   name: alerter-config
                   key: LOAD_BALANCER_URL
-          # Add AWS IAM role if using IRSA (optional)
-          # env:
-          #   - name: AWS_REGION
-          #     value: "us-east-1"
           resources:
             requests:
               cpu: "100m"
