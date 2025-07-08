@@ -1,10 +1,10 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: nginx-configuration
+  name: ingress-nginx-controller
   namespace: ingress-nginx
   labels:
     app.kubernetes.io/name: ingress-nginx
     app.kubernetes.io/component: controller
 data:
-  enable-snippets: "true"
+  allow-snippet-annotations: "true"
