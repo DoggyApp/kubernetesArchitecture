@@ -61,6 +61,24 @@
         release_namespace: kube-system
         state: absent
 
+    - name: Return SNS ARN 
+      shell: |
+        aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
+      register: sns_topic_arn
+
+    - name: Get all SNS subscriptions
+      amazon.aws.aws_sns_subscription_info:
+        topic_arn: "{{ sns_topic_arn }}"
+      register: sns_subscriptions
+
+    - name: Unsubscribe all SNS subscriptions
+      amazon.aws.aws_sns_subscription:
+        subscription_arn: "{{ item.subscription_arn }}"
+        state: absent
+      loop: "{{ sns_subscriptions.subscriptions }}"
+      when: item.subscription_arn != 'PendingConfirmation'
+
+
     - name: Delete SNS CloudFormation stack
       amazon.aws.cloudformation:
         stack_name: sns-doggy
