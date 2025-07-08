@@ -257,10 +257,10 @@
 
         - name: Subscribe email to SNS topic if not already subscribed
           shell: |
-            EXISTING_SUBS=$(aws sns list-subscriptions-by-topic --topic-arn "{{ sns_topic_arn }}" | grep -c "{{ email }}")
+            EXISTING_SUBS=$(aws sns list-subscriptions-by-topic --topic-arn "{{ sns_topic_arn.stdout }}" | grep -c "{{ email }}")
             if [ "$EXISTING_SUBS" -eq 0 ]; then
               aws sns subscribe \
-                --topic-arn "{{ sns_topic_arn }}" \
+                --topic-arn "{{ sns_topic_arn.stdout }}" \
                 --protocol email \
                 --notification-endpoint "{{ email }}"
             fi
