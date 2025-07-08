@@ -297,6 +297,8 @@
             stack_name: alert-hook-iam-role
             template_body: "{{ lookup('file', config_dir + '/cf-alert-hook-role-up.yaml') }}"
             state: present
+            capabilities:
+              - CAPABILITY_NAMED_IAM
           register: deploying_alert_stack
 
 
