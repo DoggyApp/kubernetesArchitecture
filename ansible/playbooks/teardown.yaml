@@ -66,17 +66,16 @@
         aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
       register: sns_topic_arn
 
-    - name: Get all SNS subscriptions
-      amazon.aws.aws_sns_subscription_info:
-        topic_arn: "{{ sns_topic_arn }}"
-      register: sns_subscriptions
-
-    - name: Unsubscribe all SNS subscriptions
-      amazon.aws.aws_sns_subscription:
-        subscription_arn: "{{ item.subscription_arn }}"
-        state: absent
-      loop: "{{ sns_subscriptions.subscriptions }}"
-      when: item.subscription_arn != 'PendingConfirmation'
+    - name: Unsubscribe all SNS subscriptions for the topic
+      shell: |
+        for arn in $(aws sns list-subscriptions-by-topic \
+                       --topic-arn "{{ sns_topic_arn.stdout }}" \
+                       --query 'Subscriptions[?SubscriptionArn!=`PendingConfirmation`].SubscriptionArn' \
+                       --output text); do
+          aws sns unsubscribe --subscription-arn "$arn"
+        done
+      environment:
+        AWS_REGION: us-east-1
 
 
     - name: Delete SNS CloudFormation stack
