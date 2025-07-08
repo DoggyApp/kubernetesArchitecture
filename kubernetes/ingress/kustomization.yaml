@@ -10,4 +10,4 @@ patches:
   - path: enable-snippets.yaml
     target:
       kind: ConfigMap
-      name: nginx-configuration
+      name: ingress-nginx-controller
