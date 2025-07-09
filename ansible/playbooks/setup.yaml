@@ -304,11 +304,9 @@
 
     - name: Deploy the alert hook
       block:  
-
         - name: Apply Loki alert rules
           shell: kubectl apply -f "{{ arch_dir }}/monitoring/loki/loki-alert-rules.yaml" -n monitoring
 
-#AWS module 
         - name: Get alert hook role ARN
           shell: |
             aws cloudformation describe-stacks \
