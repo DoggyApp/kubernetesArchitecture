@@ -19,14 +19,14 @@ spec:
   rules:
   - http:
       paths:
-        - path:  ^/registry(/|$)(.*)
+        - path:  /registry(/|$)(.*)
           pathType: ImplementationSpecific
           backend:
             service:
               name: registry-service
               port:
                 number: 8080
-        - path: /?(.*)
+        - path: /(.*)
           pathType: ImplementationSpecific
           backend:
             service:
