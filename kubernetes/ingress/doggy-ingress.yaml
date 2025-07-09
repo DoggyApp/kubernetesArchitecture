@@ -10,7 +10,7 @@ metadata:
     nginx.ingress.kubernetes.io/limit-rpm: "60"  # 60 requests per minute
     nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
     nginx.ingress.kubernetes.io/limit-exempt: "127.0.0.1"
-    ginx.ingress.kubernetes.io/rewrite-target: /index.html
+    nginx.ingress.kubernetes.io/rewrite-target: /index.html
     nginx.ingress.kubernetes.io/use-regex: "true"
     # nginx.ingress.kubernetes.io/configuration-snippet: |
     #   rewrite ^/(?!registry|assets|favicon\.ico|.*\.(js|css|png|jpg|woff2?|ttf|svg))$ /index.html break;
