@@ -34,6 +34,6 @@ Resources:
 Outputs:
   ClusterAlerterRoleArn:
     Description: ARN of the Cluster Alerter IAM Role
-    Value: !Ref ClusterAlerterRole
+    Value: !GetAtt ClusterAlerterRole.Arn
     Export:
       Name: ClusterAlerterRoleArn
