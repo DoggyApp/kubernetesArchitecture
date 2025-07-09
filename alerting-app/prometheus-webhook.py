@@ -75,7 +75,7 @@ def get_secret():
     app.logger.info("openai secret key")
     app.logger.info(secret_dict)
 
-    return secret_dict['openai-key']
+    return secret_dict['key']
 
 def query_loki(start, end, query):
     app.logger.info("inside query loki")

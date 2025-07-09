@@ -39,6 +39,6 @@ Resources:
 Outputs:
   ClusterAutoscalerRoleArn:
     Description: ARN of the Cluster Autoscaler IAM Role
-    Value: !Ref ClusterAutoscalerRole
+    Value: !GetAtt ClusterAutoscalerRole.Arn 
     Export:
       Name: ClusterAutoscalerRoleArn
