@@ -19,6 +19,13 @@ spec:
   rules:
   - http:
       paths:
+        - path: /(.+\.(js|css|png|jpg|jpeg|svg|woff2?|ttf|ico))
+          pathType: ImplementationSpecific
+          backend:
+            service:
+              name: doggy-webapp
+              port:
+                number: 80
         - path:  /registry(/|$)(.*)
           pathType: ImplementationSpecific
           backend:
@@ -33,11 +40,4 @@ spec:
               name: doggy-webapp
               port:
                 number: 80
-        # ✅ Asset passthrough: don't rewrite these
-        - path: /(.+\.(js|css|png|jpg|jpeg|svg|woff2?|ttf|ico))
-          pathType: ImplementationSpecific
-          backend:
-            service:
-              name: doggy-webapp
-              port:
-                number: 80
+
