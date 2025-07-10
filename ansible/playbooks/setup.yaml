@@ -387,5 +387,4 @@
         - name: Echo lb_host 
           shell: | 
             echo {{ lb_host.stdout }}
-
 ...
