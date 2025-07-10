@@ -33,10 +33,3 @@ spec:
               name: doggy-webapp
               port:
                 number: 80
-        - path: /.*\.(js|css|ico|png|jpg|jpeg|svg|woff2?|ttf)
-          pathType: ImplementationSpecific
-          backend:
-            service:
-              name: doggy-webapp
-              port:
-                number: 80
