@@ -2,7 +2,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
 🛠️ Features
 
-    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a single script. 
+    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a ansible single script. 
 
     📜 Scrapes logs from deployed application and alerts when an "ERROR" appears. 
 
@@ -15,6 +15,10 @@ This project provides an infrastructure-as-code solution for deploying a full st
     🤖 Intergrates OpenIA into the alerting pipeline for rich analysis 
 
     📨 Sends enriched alterts via AWS SNS. 
+
+    💻 Ingress configured for client side routing. 
+
+    💥 Teardown script enables easy removable of the application and all dependencies, and AWS infrastructure in a single ansible script. 
 
 🧱 Architecture
 
@@ -34,45 +38,64 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
     System namespace 
 
-        Node Autoscaler provided with IAM permissions to perform the tasks of scaling up and down node in accordance to their need. (Minimum : 0, Desired : 1, Maximum : 2)
+        Node Autoscaler provided with IAM permissions to perform the tasks of scaling up and down node in accordance to their need. (Minimum : 0, Desired : 1, Maximum : 3)
 
 🚀 Deployment
 
-    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS credentials properly configured on your personal computer. 
+    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS credentials properly configured on your personal computer, meaning the access key and secret key of the user what deployed the cluster, and with proper permissions for SSM. 
 
         # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. 
         # from your terminal run, this will start a remote session in that EC2 instance. 
+
         aws ssm start-session --target <the mgmt instance instance ID>
 
         # in the start up script for this instance we git cloned this very project into the instance under /home/ec-user, log in and make sure that it is there
+        
         sudo su - ec2-user 
         cd kubernetesArchitecture 
 
-        # run the start up script, you should see instructions to put in your own credentials and information for the project to work. 
-        bash setup.bash 
+        # The start up script should have automatically deployed, and the bashrc. created convenient aliases to access the setup script for the appplication. THe command is... 
+        setup 
 
         # confirm that the project is running 
         kubectl get pods 
+
+        # you should see "registry" "webapp" and "doggy-ingress" 
+
         kubectl get pods -n monitoring 
 
-        #go to the web page and confirm that it is there and that the notification systems are running 
-        echo $LB_HOST
+        # you should see the "prommetheus" "grafana" "loki" and "alert-analyzer". 
 
-        # copy the URL into your browser, you should see 3 buttons "test" "trigger frontend error" "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger frontend error" and "trigger backend error" as to what error was triggered and an analysis of the logs. 
+        #The below command will give you the URL to the web page so you can confirm that it is there and that the notification systems are running 
+
+        kubectl get ingress 
+
+        # copy the URL into your browser, you should see 3 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". 
+
+        # you can also test that the clint side routing is working by typing in the browser "http://amazon-url/dev-server" dev-server being a common url that bots scraping the internet will attempt to access sensitive files, it should lead to a "/not-found" page.
         
         # Ensure that Grafana is running 
         # This is the command to get the password to log into the UI 
+
         kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
         # Grafana is running in the cluster so you have to port forward to reach it from the bastion 
+
         kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
 
-        # the bastion doesn't have a browser and Grafana is viewed in the browser so you have to porr forward again from the bastion to your local computer, you can do this with Session Manager. Open a new terminal window on your local computer and enter this command. 
+        # the bastion doesn't have a browser and Grafana is viewed in the browser so you have to port forward again from the bastion to your local computer, you can do this with Session Manager. Open a new terminal window on your local computer and enter this command. 
+
         aws ssm start-session --target <your mgmg instance ID> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
 
         # go to your browser and type in http://localhost:3000 grafana will appear there, log in with user name "admin" and the password that you collected 3 commands ago, it should be "prom-operator". 
 
         # Once logged in you can explore and see dashboards, alert rules, logs and data sources. 
+
+        # When you're ready to take down the application you can delete it by using the alias command that should have been set in the bashrc. file 
+
+        teardown 
+
+        # go to CloudFormation in the AWS console and delete the doggy-stack from the base stack. And it will clear all traces of the application from your AWS, inclusing subsciptions to SNS topics. 
 
 🛡️ Security 
 
@@ -84,9 +107,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
     🔐 Ingress config has rate limits to deter scanners. 
 
-    🔐 Ingress config returned 403 for specific bad urls such as "development-server". 
-
-    🔐 Ingress config has coniguration-snippets to prevent XSS attacks, clickjacking attacks and MIME attacks. 
+    🔐 Client side routing configured to returned 404 not-found for bad urls such as "development-server".  
     
     🔐 Grafan is not exposed by the ingress controller, and is only accessible through port forwarding with an SSM session, or from within the cluster. 
 
