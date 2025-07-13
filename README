@@ -2,7 +2,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
 🛠️ Features
 
-    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a ansible single script. 
+    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a single ansible script. 
 
     📜 Scrapes logs from deployed application and alerts when an "ERROR" appears. 
 
@@ -32,7 +32,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         Promtail scraper deployed on the same node as the full stack application collecting container logs. 
 
-        Prometheus stack, including pods for scraping metrics, alert management, and api requests, as well as app componenets. 
+        Prometheus stack, including pods for scraping metrics, alert management, and gateway, as well as app componenets. 
 
         Alert analyzer, the pod dediceted to recieving alerts from prometheus alert manager, enriching them through OpenAI and then forwarding that to AWS SNS. 
 
@@ -42,35 +42,41 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
 🚀 Deployment
 
-    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS credentials properly configured on your personal computer, meaning the access key and secret key of the user what deployed the cluster, and with proper permissions for SSM. 
+    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS profile properly configured on your personal computer, meaning the access key and secret key of the user that deployed the cluster, and with proper permissions for SSM and all needed tasks. 
 
-        # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. 
-        # from your terminal run, this will start a remote session in that EC2 instance. 
+        # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. (You might want to wait 20 min, the start up script installs Python10, which is needed to run the latest version of ansible, this takes a long while, so even if you log into the session once the instance appears it will still take a good while longer to spin up the environment. A good way to check that it is done is to wait for an email from AWS SNS with a confirmation to subscribe to "doggy-alerts" this is done towards the end of the script). 
+        # from your terminal run, 
 
         aws ssm start-session --target <the mgmt instance instance ID>
+
+        # this will start a remote session in that EC2 instance. 
+
+        # you can also SSM directly into the instance from the AWS console, the above is just my prefered method, and it will be helpful later on to have done it this way if you want to view the full fonctionality of the environment. 
 
         # in the start up script for this instance we git cloned this very project into the instance under /home/ec-user, log in and make sure that it is there
         
         sudo su - ec2-user 
         cd kubernetesArchitecture 
 
-        # The start up script should have automatically deployed, and the bashrc. created convenient aliases to access the setup script for the appplication. THe command is... 
+        # The start up script should have automatically deployed the environment, and the bashrc. created convenient functions to access the ansible setup script for the appplication. The command is... 
         setup 
 
         # confirm that the project is running 
         kubectl get pods 
 
-        # you should see "registry" "webapp" and "doggy-ingress" 
+        # you should see "registry" and "webapp". 
 
         kubectl get pods -n monitoring 
 
-        # you should see the "prommetheus" "grafana" "loki" and "alert-analyzer". 
+        # you should see the "prometheus" "grafana" "loki" and "alert-analyzer". 
 
         #The below command will give you the URL to the web page so you can confirm that it is there and that the notification systems are running 
 
         kubectl get ingress 
 
-        # copy the URL into your browser, you should see 3 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". 
+        # Once the startup script has run, you should see an email from AWS SNS with a request to confirm your subscription to the topic "doggy-alerts" 
+
+        # copy the URL into your browser, you should see 2 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". 
 
         # you can also test that the clint side routing is working by typing in the browser "http://amazon-url/dev-server" dev-server being a common url that bots scraping the internet will attempt to access sensitive files, it should lead to a "/not-found" page.
         
@@ -110,6 +116,8 @@ This project provides an infrastructure-as-code solution for deploying a full st
     🔐 Client side routing configured to returned 404 not-found for bad urls such as "development-server".  
     
     🔐 Grafan is not exposed by the ingress controller, and is only accessible through port forwarding with an SSM session, or from within the cluster. 
+
+    🔐 Images used on Angular and Springboot pods are the recommended. They're minmal to prevent suface area for exploitation, and set to latest for the most patched image. 
 
     ⚠️ WARNING: There need to be restrictions placed on the the Kubernetes DNS so that API calls across namespaces cannot be made from the publicly accessible pods. 
 
