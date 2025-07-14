@@ -169,8 +169,8 @@ def handle_alert():
 
             # Convert times
             start_dt = datetime.datetime.strptime(starts_at, "%Y-%m-%dT%H:%M:%S.%fZ").replace(tzinfo=datetime.timezone.utc)
-            end_dt = start_dt + datetime.timedelta(minutes=10)
-            start_dt = start_dt - datetime.timedelta(minutes=10)  # pull a bit earlier too
+            end_dt = start_dt + datetime.timedelta(minutes=3)
+            start_dt = start_dt - datetime.timedelta(minutes=3)  # pull a bit earlier too
 
             
             start_ns = int(start_dt.timestamp() * 1e9)
@@ -192,9 +192,9 @@ def handle_alert():
                 for entry in stream.get("values", []):
                     log_lines.append(entry[1])
 
-            combined_logs = "\n".join(log_lines[:20])
+            combined_logs = "\n".join(log_lines[:70])
             app.logger.info("combined logs")
-            app.logger.info(f"Using first {len(log_lines[:20])} log lines for OpenAI query.")
+            app.logger.info(f"Using first {len(log_lines[:70])} log lines for OpenAI query.")
             app.logger.info(combined_logs)
             question = f"The following alert was triggered: {alertname} (severity: {severity}) on pod {pod}.\nLogs:\n{combined_logs}\n\nCan you help analyze what happened?"
             app.logger.info(question)
