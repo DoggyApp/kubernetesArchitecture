@@ -44,24 +44,27 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
     Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS profile properly configured on your personal computer, meaning the access key and secret key of the user that deployed the cluster, and with proper permissions for SSM and all needed tasks. 
 
-        # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. (You might want to wait 20 min, the start up script installs Python10, which is needed to run the latest version of ansible, this takes a long while, so even if you log into the session once the instance appears it will still take a good while longer to spin up the environment. A good way to check that it is done is to wait for an email from AWS SNS with a confirmation to subscribe to "doggy-alerts" this is done towards the end of the script). 
+        # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. (You might want to wait 20 min, the start up script installs Python10, which is needed to run the latest version of ansible, this takes a long while, so even if you log into the session once the instance appears it will still take a good while longer to spin up the environment. A good way to check that it is done is to wait for an email from AWS SNS with a confirmation to subscribe to "doggy-alerts" this is after the heavy lifting in the script). 
         # from your terminal run, 
 
-        aws ssm start-session --target i-0714ee147de727c92 
+        aws ssm start-session --target <your-instance-id>
 
         # this will start a remote session in that EC2 instance. 
 
-        # you can also SSM directly into the instance from the AWS console, the above is just my prefered method, and it will be helpful later on to have done it this way if you want to view the full fonctionality of the environment. 
+        # you can also SSM directly into the instance from the AWS console, the above is just my prefered method, and it will be helpful later on to have done it this way if you want to view the full functionality of the environment. 
 
-        # in the start up script for this instance we git cloned this very project into the instance under /home/ec-user, log in and make sure that it is there
-        
+        # in the start up script for this instance we set the .bashrc file to acces the py-10 virtual environment log in with 
+
         sudo su - ec2-user 
+        
+        # and  make sure that this is your tag in the command line is "(py10-ansible-env) [ec2-user@ip-10-98-25-84 ~]$" 
+        # we also git cloned this very project into the instance under /home/ec-user, make sure that it is there
+
         cd kubernetesArchitecture 
 
-        # The start up script should have automatically deployed the environment, and the bashrc. created convenient functions to access the ansible setup script for the appplication. The command is... 
-        setup 
-
+        # The start up script should have automatically deployed the environment, 
         # confirm that the project is running 
+
         kubectl get pods 
 
         # you should see "registry" and "webapp". 
@@ -70,18 +73,20 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         # you should see the "prometheus" "grafana" "loki" and "alert-analyzer". 
 
-        #The below command will give you the URL to the web page so you can confirm that it is there and that the notification systems are running 
+        kubectl get pods -n kube-system 
+
+        # you should see "cluster-autoscaler" 
+
+        # The below command will give you the URL to the web page so you can confirm that it is there and that the notification systems are running 
 
         kubectl get ingress 
 
-        # Once the startup script has run, you should see an email from AWS SNS with a request to confirm your subscription to the topic "doggy-alerts" 
-
-        # copy the URL into your browser, you should see 2 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the back end, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". 
+        # copy the URL into your browser, you should see 2 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the backend, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". (assuming that you have confimed the subscirption to doggy-alerts!)
 
         # you can also test that the clint side routing is working by typing in the browser "http://amazon-url/dev-server" dev-server being a common url that bots scraping the internet will attempt to access sensitive files, it should lead to a "/not-found" page.
         
         # Ensure that Grafana is running 
-        # This is the command to get the password to log into the UI 
+        # This is the command to get the password to log into the UI (it should be "prom-operator")
 
         kubectl get secret -n monitoring kube-prometheus-stack-grafana -o jsonpath="{.data.admin-password}" | base64 --decode
 
@@ -91,17 +96,23 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         # the bastion doesn't have a browser and Grafana is viewed in the browser so you have to port forward again from the bastion to your local computer, you can do this with Session Manager. Open a new terminal window on your local computer and enter this command. 
 
-        aws ssm start-session --target i-0714ee147de727c92 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+        aws ssm start-session --target <your-instance-id> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
 
-        # go to your browser and type in http://localhost:3000 grafana will appear there, log in with user name "admin" and the password that you collected 3 commands ago, it should be "prom-operator". 
+        # go to your browser and type in http://localhost:3000 grafana will appear there, log in with the default user name "admin" and the password that you collected 3 commands ago. 
 
         # Once logged in you can explore and see dashboards, alert rules, logs and data sources. 
 
-        # When you're ready to take down the application you can delete it by using the alias command that should have been set in the bashrc. file 
+        # When you're ready to take down the application you can delete it by using the alias command that should have been set in the bashrc. file... 
 
         teardown 
 
         # go to CloudFormation in the AWS console and delete the doggy-stack from the base stack. And it will clear all traces of the application from your AWS, inclusing subsciptions to SNS topics. 
+
+🛠️ Troubleshooting 
+
+    In the bashrc. is a functions to access the ansible setup script for the appplication. The command is... "setup". If the application is not running you can run this script indepotently and read the error logs. I have attached the -vvv flag which makes them verbose. 
+
+    also, if you cat \vars\log\user-data.log you will find a file with the output from the start up script. This will likely direct you to the problem. 
 
 🛡️ Security 
 
