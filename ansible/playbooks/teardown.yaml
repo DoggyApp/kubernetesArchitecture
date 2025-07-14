@@ -61,21 +61,21 @@
         release_namespace: kube-system
         state: absent
 
-    # - name: Return SNS ARN 
-    #   shell: |
-    #     aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
-    #   register: sns_topic_arn
+    - name: Return SNS ARN 
+      shell: |
+        aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
+      register: sns_topic_arn
 
-    # - name: Unsubscribe all SNS subscriptions for the topic
-    #   shell: |
-    #     for arn in $(aws sns list-subscriptions-by-topic \
-    #                    --topic-arn "{{ sns_topic_arn.stdout }}" \
-    #                    --query 'Subscriptions[?SubscriptionArn!=`PendingConfirmation`].SubscriptionArn' \
-    #                    --output text); do
-    #       aws sns unsubscribe --subscription-arn "$arn"
-    #     done
-    #   environment:
-    #     AWS_REGION: us-east-1
+    - name: Unsubscribe all SNS subscriptions for the topic
+      shell: |
+        for arn in $(aws sns list-subscriptions-by-topic \
+                       --topic-arn "{{ sns_topic_arn.stdout }}" \
+                       --query 'Subscriptions[?SubscriptionArn!=`PendingConfirmation`].SubscriptionArn' \
+                       --output text); do
+          aws sns unsubscribe --subscription-arn "$arn"
+        done
+      environment:
+        AWS_REGION: us-east-1
 
 
     - name: Delete SNS CloudFormation stack
