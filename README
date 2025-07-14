@@ -47,7 +47,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
         # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. (You might want to wait 20 min, the start up script installs Python10, which is needed to run the latest version of ansible, this takes a long while, so even if you log into the session once the instance appears it will still take a good while longer to spin up the environment. A good way to check that it is done is to wait for an email from AWS SNS with a confirmation to subscribe to "doggy-alerts" this is done towards the end of the script). 
         # from your terminal run, 
 
-        aws ssm start-session --target <the mgmt instance instance ID>
+        aws ssm start-session --target i-0714ee147de727c92 
 
         # this will start a remote session in that EC2 instance. 
 
@@ -91,7 +91,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         # the bastion doesn't have a browser and Grafana is viewed in the browser so you have to port forward again from the bastion to your local computer, you can do this with Session Manager. Open a new terminal window on your local computer and enter this command. 
 
-        aws ssm start-session --target <your mgmg instance ID> --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
+        aws ssm start-session --target i-0714ee147de727c92 --document-name AWS-StartPortForwardingSession --parameters '{"portNumber":["3000"],"localPortNumber":["3000"]}'
 
         # go to your browser and type in http://localhost:3000 grafana will appear there, log in with user name "admin" and the password that you collected 3 commands ago, it should be "prom-operator". 
 
