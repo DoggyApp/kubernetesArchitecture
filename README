@@ -116,7 +116,7 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
 🛡️ Security 
 
-    🔐 NGINX Ingress Controller has the shell in onLogin. 
+    🔐 NGINX Ingress Controller has the shell in noLogin. 
 
     🔐 NGINX Ingress Controller has TLS configured to terminate in the controller. (though traffic inside the cluster is unencrypted). 
 
