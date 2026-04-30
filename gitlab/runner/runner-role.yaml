@@ -1,0 +1,51 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: IAM role for the GitLab Runner pod to push and pull images from ECR via IRSA
+
+Parameters:
+  AwsAccountId:
+    Type: String
+  OidcUrl:
+    Type: String
+    Description: OIDC provider URL without the https:// prefix
+  Region:
+    Type: String
+    Default: us-east-1
+
+Resources:
+  GitLabRunnerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: gitlab-runner-ecr-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AwsAccountId}:oidc-provider/${OidcUrl}
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                '${OidcUrl}:sub': 'system:serviceaccount:gitlab:gitlab-runner'
+                '${OidcUrl}:aud': 'sts.amazonaws.com'
+      Policies:
+        - PolicyName: ecr-push-pull
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: '*'
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:PutImage
+                  - ecr:InitiateLayerUpload
+                  - ecr:UploadLayerPart
+                  - ecr:CompleteLayerUpload
+                  - ecr:GetDownloadUrlForLayer
+                  - ecr:BatchGetImage
+                Resource: !Sub arn:aws:ecr:${Region}:${AwsAccountId}:repository/doggyapp/*
+
+Outputs:
+  GitLabRunnerRoleArn:
+    Value: !GetAtt GitLabRunnerRole.Arn

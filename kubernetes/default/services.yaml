@@ -1,3 +1,37 @@
+apiVersion: apps/v1 
+kind: Deployment
+metadata: 
+  name: webapp 
+  namespace: default
+spec: 
+  selector: 
+    matchLabels: 
+      app: webapp
+  replicas: 1
+  template: 
+    metadata:
+      labels: 
+        app: webapp 
+    spec: 
+      terminationGracePeriodSeconds: 30
+      containers: 
+        - name: webapp 
+          image: 109798190983.dkr.ecr.us-east-1.amazonaws.com/doggyapp/frontend:latest
+          imagePullPolicy: Always
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"
+          env:
+            - name: LOAD_BALANCER_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: LOAD_BALANCER_URL
+---
 apiVersion: v1
 kind: Service
 metadata: 
@@ -11,18 +45,208 @@ spec:
       port: 80
       targetPort: 80
   type: ClusterIP
-
+---
+# OwnerService Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: owner-service
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: owner-service
+  template:
+    metadata:
+      labels:
+        app: owner-service
+    spec:
+      containers:
+        - name: owner-service
+          image: 109798190983.dkr.ecr.us-east-1.amazonaws.com/doggyapp/owner-service:latest
+          ports:
+            - containerPort: 8081
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: DB_URL
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: CORS_ALLOWED_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: LOAD_BALANCER_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8081
+            initialDelaySeconds: 30
+            periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
-metadata: 
-  name: registry-service
-  namespace: default  
-spec: 
-  selector: 
-    app: registry
-  ports: 
-    - name: http
-      port: 8080
-      targetPort: 8080
-  type: ClusterIP
+metadata:
+  name: owner-service
+  namespace: default
+spec:
+  selector:
+    app: owner-service
+  ports:
+    - port: 8081
+      targetPort: 8081
+---
+# UserService Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: 109798190983.dkr.ecr.us-east-1.amazonaws.com/doggyapp/user-service:latest
+          ports:
+            - containerPort: 8082
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: DB_URL
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: CORS_ALLOWED_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: LOAD_BALANCER_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: default
+spec:
+  selector:
+    app: user-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+# OrganizationService Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: org-service
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: org-service
+  template:
+    metadata:
+      labels:
+        app: org-service
+    spec:
+      containers:
+        - name: org-service
+          image: 109798190983.dkr.ecr.us-east-1.amazonaws.com/doggyapp/org-service:latest
+          ports:
+            - containerPort: 8083
+          env:
+            - name: DB_URL
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: DB_URL
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: CORS_ALLOWED_ORIGIN
+              valueFrom:
+                configMapKeyRef:
+                  name: frontend-config
+                  key: LOAD_BALANCER_URL
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: 8083
+            initialDelaySeconds: 30
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: org-service
+  namespace: default
+spec:
+  selector:
+    app: org-service
+  ports:
+    - port: 8083
+      targetPort: 8083
+---

@@ -1,0 +1,342 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-schema
+  namespace: default
+data:
+  01_schema.sql: |
+    CREATE TABLE IF NOT EXISTS organizations (
+    organization_id         SERIAL PRIMARY KEY,
+    name                    VARCHAR(255) NOT NULL,
+    email                   VARCHAR(255) NOT NULL UNIQUE,
+    password                VARCHAR(100) NOT NULL,
+    title                   VARCHAR(255) NOT NULL,
+    subscription_start      DATE         NOT NULL,
+    subscription_expiration DATE         NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS owners (
+        owner_id     SERIAL PRIMARY KEY,
+        first_name   VARCHAR(255)     NOT NULL,
+        last_name    VARCHAR(255)     NOT NULL,
+        handle       VARCHAR(255)     NOT NULL UNIQUE,
+        email        VARCHAR(255)     NOT NULL UNIQUE,
+        password     VARCHAR(100)     NOT NULL,
+        phone_number VARCHAR(20)      NOT NULL,
+        address      VARCHAR(255)     NOT NULL,
+        birthday     DATE             NOT NULL,
+        latitude     DOUBLE PRECISION NOT NULL,
+        longitude    DOUBLE PRECISION NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS users (
+        user_id         SERIAL PRIMARY KEY,
+        first_name      VARCHAR(255) NOT NULL,
+        last_name       VARCHAR(255) NOT NULL,
+        email           VARCHAR(255) NOT NULL UNIQUE,
+        password        VARCHAR(100) NOT NULL,
+        organization_id INTEGER      NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS dogs (
+        dog_id   SERIAL PRIMARY KEY,
+        dog_name VARCHAR(255) NOT NULL,
+        breed    VARCHAR(255) NOT NULL,
+        age      INTEGER      NOT NULL,
+        weight   INTEGER      NOT NULL,
+        image    VARCHAR(500),
+        owner_id INTEGER REFERENCES owners(owner_id) ON DELETE CASCADE
+    );
+
+    -- Many-to-many: an org can have many dogs; a dog can be registered at many orgs.
+    -- Removing a dog from an org's list only deletes this row — the dog entity is unchanged.
+    CREATE TABLE IF NOT EXISTS organization_dogs (
+        organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        dog_id          INTEGER NOT NULL REFERENCES dogs(dog_id)                   ON DELETE CASCADE,
+        PRIMARY KEY (organization_id, dog_id)
+    );
+
+    -- A location is a physical building the org operates from, named by its area
+    -- (e.g. "Lincoln Park", "East Austin"). Owners search against these addresses.
+    CREATE TABLE IF NOT EXISTS locations (
+        location_id SERIAL PRIMARY KEY,
+        name        VARCHAR(255)     NOT NULL,
+        org_id      INTEGER          NOT NULL REFERENCES organizations(organization_id),
+        address     VARCHAR(255)     NOT NULL,
+        latitude    DOUBLE PRECISION NOT NULL,
+        longitude   DOUBLE PRECISION NOT NULL
+    );
+
+    -- A room is a schedulable space within a location (Grooming Studio, Play Field, etc.).
+    -- offsite=true means the org travels from this location to an external address for the event;
+    -- the specific external address is captured on the event itself.
+    CREATE TABLE IF NOT EXISTS rooms (
+        room_id     SERIAL PRIMARY KEY,
+        name        VARCHAR(255) NOT NULL,
+        location_id INTEGER      NOT NULL REFERENCES locations(location_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS events (
+        event_id         SERIAL PRIMARY KEY,
+        event            VARCHAR(255) NOT NULL,
+        description      TEXT,
+        room_id          INTEGER REFERENCES rooms(room_id) ON DELETE CASCADE,
+        start_time       TIMESTAMP    NOT NULL,
+        end_time         TIMESTAMP    NOT NULL,
+        address          VARCHAR(255),
+        creator_user_id  INTEGER REFERENCES users(user_id) ON DELETE CASCADE,
+        owner_creator_id INTEGER REFERENCES owners(owner_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS event_attendees (
+        event_id INTEGER NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+        user_id  INTEGER NOT NULL REFERENCES users(user_id)   ON DELETE CASCADE,
+        PRIMARY KEY (event_id, user_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS event_dogs (
+        event_id INTEGER NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+        dog_id   INTEGER NOT NULL REFERENCES dogs(dog_id)     ON DELETE CASCADE,
+        PRIMARY KEY (event_id, dog_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS event_owner_attendees (
+        event_id INTEGER NOT NULL REFERENCES events(event_id) ON DELETE CASCADE,
+        owner_id INTEGER NOT NULL REFERENCES owners(owner_id) ON DELETE CASCADE,
+        PRIMARY KEY (event_id, owner_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS vaccines (
+        vaccine_id      SERIAL PRIMARY KEY,
+        vaccine_name    VARCHAR(255) NOT NULL,
+        vaccinated_date DATE         NOT NULL,
+        expiration_date DATE         NOT NULL,
+        standard        BOOLEAN      NOT NULL,
+        dog_id          INTEGER      NOT NULL REFERENCES dogs(dog_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS alerts (
+        alert_id SERIAL PRIMARY KEY,
+        alert    TEXT    NOT NULL,
+        dog_id   INTEGER NOT NULL REFERENCES dogs(dog_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS notes (
+        note_id SERIAL PRIMARY KEY,
+        note    TEXT    NOT NULL,
+        dog_id  INTEGER NOT NULL REFERENCES dogs(dog_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS likes (
+        like_id   SERIAL PRIMARY KEY,
+        like_text VARCHAR(255) NOT NULL,
+        dog_id    INTEGER      NOT NULL REFERENCES dogs(dog_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS services (
+        service_id      SERIAL PRIMARY KEY,
+        name            VARCHAR(255) NOT NULL,
+        organization_id INTEGER      NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE
+    );
+
+    CREATE TABLE IF NOT EXISTS reviews (
+        review_id       SERIAL PRIMARY KEY,
+        rating          INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+        comment         TEXT,
+        owner_id        INTEGER REFERENCES owners(owner_id) ON DELETE SET NULL,
+        organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE
+    );
+
+    -- Symmetric friendship: both (A→B) and (B→A) are always inserted and deleted together.
+    -- Reading "owner A's friends" is just: WHERE owner_id = A.
+    -- The service layer is responsible for writing both rows on add and removing both on delete.
+    CREATE TABLE IF NOT EXISTS owner_friends (
+        owner_id  INTEGER NOT NULL REFERENCES owners(owner_id) ON DELETE CASCADE,
+        friend_id INTEGER NOT NULL REFERENCES owners(owner_id) ON DELETE CASCADE,
+        PRIMARY KEY (owner_id, friend_id),
+        CONSTRAINT no_self_friendship CHECK (owner_id <> friend_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS owner_favorite_organizations (
+        owner_id        INTEGER NOT NULL REFERENCES owners(owner_id)                    ON DELETE CASCADE,
+        organization_id INTEGER NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        PRIMARY KEY (owner_id, organization_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS owner_friend_requests (
+        request_id  SERIAL PRIMARY KEY,
+        sender_id   INTEGER     NOT NULL REFERENCES owners(owner_id) ON DELETE CASCADE,
+        receiver_id INTEGER     NOT NULL REFERENCES owners(owner_id) ON DELETE CASCADE,
+        status      VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+        created_at  TIMESTAMP   NOT NULL DEFAULT NOW(),
+        CONSTRAINT no_self_request CHECK (sender_id <> receiver_id),
+        CONSTRAINT unique_request  UNIQUE (sender_id, receiver_id)
+    );
+
+    -- An owner requests to register one of their dogs with an organization.
+    -- The org can accept or reject the dog.
+    -- A dog can only have one active/pending registration per org.
+    CREATE TABLE IF NOT EXISTS owner_registration_requests (
+        request_id      SERIAL PRIMARY KEY,
+        owner_id        INTEGER     NOT NULL REFERENCES owners(owner_id)                    ON DELETE CASCADE,
+        dog_id          INTEGER     NOT NULL REFERENCES dogs(dog_id)                        ON DELETE CASCADE,
+        organization_id INTEGER     NOT NULL REFERENCES organizations(organization_id) ON DELETE CASCADE,
+        status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+        created_at      TIMESTAMP   NOT NULL DEFAULT NOW(),
+        CONSTRAINT unique_dog_org_registration UNIQUE (dog_id, organization_id)
+    );
+
+    -- An owner can invite a friend to an event they are attending or created.
+    -- The invitation is deleted on accept (owner is added as attendee) or decline.
+    CREATE TABLE IF NOT EXISTS event_invitations (
+        invitation_id SERIAL PRIMARY KEY,
+        event_id      INTEGER   NOT NULL REFERENCES events(event_id)  ON DELETE CASCADE,
+        sender_id     INTEGER   NOT NULL REFERENCES owners(owner_id)  ON DELETE CASCADE,
+        recipient_id  INTEGER   NOT NULL REFERENCES owners(owner_id)  ON DELETE CASCADE,
+        created_at    TIMESTAMP NOT NULL DEFAULT NOW(),
+        CONSTRAINT no_self_invite    CHECK (sender_id <> recipient_id),
+        CONSTRAINT unique_invitation UNIQUE (event_id, recipient_id)
+    );
+
+    -- ================================================
+    -- Indexes on foreign key columns
+    -- PostgreSQL auto-indexes PKs and UNIQUE constraints but never FK columns.
+    -- Every FK below is a likely JOIN or WHERE target as the tables grow.
+    -- For composite-PK join tables the PK index already covers the first column,
+    -- so only the second column needs an explicit index.
+    -- ================================================
+
+    -- users
+    CREATE INDEX IF NOT EXISTS idx_users_organization_id          ON users(organization_id);
+
+    -- dogs
+    CREATE INDEX IF NOT EXISTS idx_dogs_owner_id                  ON dogs(owner_id);
+
+    -- organization_dogs  (PK covers organization_id)
+    CREATE INDEX IF NOT EXISTS idx_org_dogs_dog_id                ON organization_dogs(dog_id);
+
+    -- locations
+    CREATE INDEX IF NOT EXISTS idx_locations_org_id               ON locations(org_id);
+
+    -- rooms
+    CREATE INDEX IF NOT EXISTS idx_rooms_location_id              ON rooms(location_id);
+
+    -- events
+    CREATE INDEX IF NOT EXISTS idx_events_room_id                 ON events(room_id);
+    CREATE INDEX IF NOT EXISTS idx_events_creator_user_id         ON events(creator_user_id);
+    CREATE INDEX IF NOT EXISTS idx_events_owner_creator_id        ON events(owner_creator_id);
+
+    -- event_attendees  (PK covers event_id)
+    CREATE INDEX IF NOT EXISTS idx_event_attendees_user_id        ON event_attendees(user_id);
+
+    -- event_dogs  (PK covers event_id)
+    CREATE INDEX IF NOT EXISTS idx_event_dogs_dog_id              ON event_dogs(dog_id);
+
+    -- event_owner_attendees  (PK covers event_id)
+    CREATE INDEX IF NOT EXISTS idx_event_owner_attendees_owner_id ON event_owner_attendees(owner_id);
+
+    -- vaccines / alerts / notes / likes
+    CREATE INDEX IF NOT EXISTS idx_vaccines_dog_id                ON vaccines(dog_id);
+    CREATE INDEX IF NOT EXISTS idx_alerts_dog_id                  ON alerts(dog_id);
+    CREATE INDEX IF NOT EXISTS idx_notes_dog_id                   ON notes(dog_id);
+    CREATE INDEX IF NOT EXISTS idx_likes_dog_id                   ON likes(dog_id);
+
+    -- services / reviews
+    CREATE INDEX IF NOT EXISTS idx_services_organization_id       ON services(organization_id);
+    CREATE INDEX IF NOT EXISTS idx_reviews_organization_id        ON reviews(organization_id);
+
+    -- owner_friends  (PK covers owner_id)
+    CREATE INDEX IF NOT EXISTS idx_owner_friends_friend_id        ON owner_friends(friend_id);
+
+    -- owner_favorite_organizations  (PK covers owner_id)
+    CREATE INDEX IF NOT EXISTS idx_owner_fav_orgs_org_id          ON owner_favorite_organizations(organization_id);
+
+    -- owner_friend_requests
+    CREATE INDEX IF NOT EXISTS idx_friend_requests_sender_id      ON owner_friend_requests(sender_id);
+    CREATE INDEX IF NOT EXISTS idx_friend_requests_receiver_id    ON owner_friend_requests(receiver_id);
+
+    -- owner_registration_requests
+    CREATE INDEX IF NOT EXISTS idx_reg_requests_owner_id          ON owner_registration_requests(owner_id);
+    CREATE INDEX IF NOT EXISTS idx_reg_requests_dog_id            ON owner_registration_requests(dog_id);
+    CREATE INDEX IF NOT EXISTS idx_reg_requests_organization_id   ON owner_registration_requests(organization_id);
+
+    -- event_invitations
+    CREATE INDEX IF NOT EXISTS idx_event_invitations_event_id     ON event_invitations(event_id);
+    CREATE INDEX IF NOT EXISTS idx_event_invitations_sender_id    ON event_invitations(sender_id);
+    CREATE INDEX IF NOT EXISTS idx_event_invitations_recipient_id ON event_invitations(recipient_id);
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: default
+spec:
+  serviceName: postgres-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: POSTGRES_USER
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+            - name: schema-init
+              mountPath: /docker-entrypoint-initdb.d
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi
+      volumes:
+        - name: schema-init
+          configMap:
+            name: postgres-schema
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        storageClassName: gp2
+        resources:
+          requests:
+            storage: 10Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-service
+  namespace: default
+spec:
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+      targetPort: 5432
+  clusterIP: None  # Headless service — required for StatefulSets

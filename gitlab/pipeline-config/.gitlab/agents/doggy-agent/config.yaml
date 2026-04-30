@@ -1,0 +1,9 @@
+# .gitlab/agents/doggy-agent/config.yaml
+# This file authorises which GitLab projects can use this agent.
+# ci_access grants the listed projects permission to run kubectl via the agent.
+ci_access:
+  projects:
+    - id: doggyapp/frontend
+    - id: doggyapp/owner-service
+    - id: doggyapp/user-service
+    - id: doggyapp/org-service

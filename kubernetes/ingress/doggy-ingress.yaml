@@ -1,43 +1,122 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: doggy-ingress
+  name: owner-service-ingress
   namespace: default
   annotations:
-    nginx.ingress.kubernetes.io/proxy-read-timeout: "10"
-    nginx.ingress.kubernetes.io/proxy-send-timeout: "10"
-    nginx.ingress.kubernetes.io/limit-connections: "5"
-    nginx.ingress.kubernetes.io/limit-rpm: "60"  # 60 requests per minute
-    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
-    nginx.ingress.kubernetes.io/limit-exempt: "127.0.0.1"
-    # nginx.ingress.kubernetes.io/rewrite-target: /index.html
+    # Rewrites /api/owner/register → /owner/register so Spring Boot's
+    # @RequestMapping("/owner") controller receives the path it expects.
+    nginx.ingress.kubernetes.io/rewrite-target: /owner/$2
     nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/configuration-snippet: |
-      rewrite ^/(?!registry|assets|favicon\.ico|.*\.(js|css|png|jpg|woff2?|ttf|svg))$ /index.html break;
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    nginx.ingress.kubernetes.io/limit-rpm: "120"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
 spec:
   ingressClassName: nginx
   rules:
-  - http:
-      paths:
-        - path: /(.+\.(js|css|png|jpg|jpeg|svg|woff2?|ttf|ico))
-          pathType: ImplementationSpecific
-          backend:
-            service:
-              name: doggy-webapp
-              port:
-                number: 80
-        - path:  /registry(/|$)(.*)
-          pathType: ImplementationSpecific
-          backend:
-            service:
-              name: registry-service
-              port:
-                number: 8080
-        - path: /(.*)
-          pathType: ImplementationSpecific
-          backend:
-            service:
-              name: doggy-webapp
-              port:
-                number: 80
-
+    - http:
+        paths:
+          - path: /api/owner(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: owner-service
+                port:
+                  number: 8081
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: user-service-ingress
+  namespace: default
+  annotations:
+    # Rewrites /api/user/login → /user/login so Spring Boot's
+    # @RequestMapping("/user") controller receives the path it expects.
+    nginx.ingress.kubernetes.io/rewrite-target: /user/$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    nginx.ingress.kubernetes.io/limit-rpm: "120"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/user(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: user-service
+                port:
+                  number: 8082
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: org-service-ingress
+  namespace: default
+  annotations:
+    # Rewrites /api/org/login → /organization/login so Spring Boot's
+    # @RequestMapping("/organization") controller receives the path it expects.
+    # Note: the Angular service uses /api/org as the prefix (shorter),
+    # but Spring Boot's controller is mapped to /organization.
+    nginx.ingress.kubernetes.io/rewrite-target: /organization/$2
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    nginx.ingress.kubernetes.io/limit-rpm: "120"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          - path: /api/org(/|$)(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: org-service
+                port:
+                  number: 8083
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend-ingress
+  namespace: default
+  annotations:
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "30"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "30"
+    nginx.ingress.kubernetes.io/limit-connections: "5"
+    nginx.ingress.kubernetes.io/limit-rpm: "120"
+    nginx.ingress.kubernetes.io/limit-burst-multiplier: "3"
+    nginx.ingress.kubernetes.io/limit-exempt: "127.0.0.1"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      rewrite ^/(?!assets|favicon\.ico|.*\.(js|css|png|jpg|woff2?|ttf|svg))$ /index.html break;
+spec:
+  ingressClassName: nginx
+  rules:
+    - http:
+        paths:
+          # Static assets — served directly without rewrite
+          - path: ~* \.(js|css|png|jpg|jpeg|svg|woff|woff2|ttf|ico)$
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: doggy-webapp
+                port:
+                  number: 80
+          # SPA catch-all — all other routes serve Angular's index.html
+          - path: /(.*)
+            pathType: ImplementationSpecific
+            backend:
+              service:
+                name: doggy-webapp
+                port:
+                  number: 80
