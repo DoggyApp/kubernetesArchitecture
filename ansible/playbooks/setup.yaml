@@ -59,6 +59,14 @@
           async: 600
           poll: 10
 
+        - name: Read GitLab initial root password
+          shell: sudo grep 'Password:' /etc/gitlab/initial_root_password | awk '{print $2}'
+          register: gitlab_initial_password_raw
+
+        - name: Set GitLab temp password fact
+          set_fact:
+            gitlab_temp_password: "{{ gitlab_initial_password_raw.stdout | trim }}"
+
 #########################################################################
 ############# Create GitLabAutomation ########################
         # Use the GitLab REST API to create a personal access token for automation.
@@ -764,8 +772,8 @@
  #################################################################
  ######################### DEPLOY PODS ##################################
 
-    - name: Deploy pods
-      block:  
+    - name: Deploy alerter pod
+      block:
         - name: Wait for ingress to become available
           kubernetes.core.k8s_info:
             api_version: networking.k8s.io/v1
@@ -782,12 +790,6 @@
             kubectl get ingress doggy-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           register: lb_host
 
-        - name: Create frontend config map
-          shell: |
-            kubectl create configmap frontend-config \
-              --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
-              --dry-run=client -o yaml | kubectl apply -f -
-
         - name: Create alerter config map
           shell: |
             kubectl create configmap alerter-config \
@@ -795,25 +797,29 @@
               --namespace=monitoring \
               --dry-run=client -o yaml | kubectl apply -f -
 
-        - name: Create webhook 
+        - name: Create webhook
           kubernetes.core.k8s:
             state: present
             src: "{{ config_dir }}/alert-pod-up.yaml"
-            apply: True 
+            apply: True
 
-        - name: Apply web app pods 
-          kubernetes.core.k8s:
-            state: present
-            src: "{{ arch_dir }}/default/pods.yaml"
-            apply: True 
+    - name: Write environment info file to bastion home directory
+      block:
+        - name: Get Grafana admin password
+          shell: |
+            kubectl get secret kube-prometheus-stack-grafana \
+              -n monitoring \
+              -o jsonpath="{.data.admin-password}" | base64 --decode
+          register: grafana_password_raw
 
-        - name: Apply web app services 
-          kubernetes.core.k8s:
-            state: present
-            src: "{{ arch_dir }}/default/services.yaml"
-            apply: True 
-
-        - name: Echo lb_host 
-          shell: | 
-            echo {{ lb_host.stdout }}
+        - name: Write environment info file
+          copy:
+            dest: /home/ec2-user/environment-info.txt
+            content: |
+              gitlab temp password : {{ gitlab_temp_password }}
+              gitlab URL : http://{{ gitlab_alb_url }}
+              Web app URL : http://{{ lb_host.stdout }}
+              Grafana User name : admin
+              Grafana Password : {{ grafana_password_raw.stdout }}
+            mode: '0600'
 ...
