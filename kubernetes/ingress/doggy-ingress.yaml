@@ -104,15 +104,6 @@ spec:
   rules:
     - http:
         paths:
-          # Static assets — served directly without rewrite
-          - path: ~* \.(js|css|png|jpg|jpeg|svg|woff|woff2|ttf|ico)$
-            pathType: ImplementationSpecific
-            backend:
-              service:
-                name: doggy-webapp
-                port:
-                  number: 80
-          # SPA catch-all — all other routes serve Angular's index.html
           - path: /(.*)
             pathType: ImplementationSpecific
             backend:
