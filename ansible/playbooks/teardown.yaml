@@ -61,7 +61,52 @@
         release_namespace: kube-system
         state: absent
 
-    - name: Return SNS ARN 
+    - name: Uninstall agentk Helm release
+      kubernetes.core.helm:
+        name: doggy-agent
+        release_namespace: gitlab
+        state: absent
+      ignore_errors: true
+
+    - name: Uninstall GitLab Runner Helm release
+      kubernetes.core.helm:
+        name: gitlab-runner
+        release_namespace: gitlab
+        state: absent
+      ignore_errors: true
+
+    - name: Delete gitlab namespace
+      kubernetes.core.k8s:
+        api_version: v1
+        kind: Namespace
+        name: gitlab
+        state: absent
+      ignore_errors: true
+
+    - name: Delete GitLab runner IAM role CloudFormation stack
+      amazon.aws.cloudformation:
+        stack_name: gitlab-runner-iam-role
+        state: absent
+
+    - name: Delete gitlab-automation-token from Secrets Manager
+      shell: aws secretsmanager delete-secret --secret-id gitlab-automation-token --force-delete-without-recovery
+      environment:
+        AWS_REGION: "{{ region }}"
+      ignore_errors: true
+
+    - name: Delete gitlab-agent-token from Secrets Manager
+      shell: aws secretsmanager delete-secret --secret-id gitlab-agent-token --force-delete-without-recovery
+      environment:
+        AWS_REGION: "{{ region }}"
+      ignore_errors: true
+
+    - name: Delete gitlab-runner-token from Secrets Manager
+      shell: aws secretsmanager delete-secret --secret-id gitlab-runner-token --force-delete-without-recovery
+      environment:
+        AWS_REGION: "{{ region }}"
+      ignore_errors: true
+
+    - name: Return SNS ARN
       shell: |
         aws cloudformation describe-stacks --stack-name sns-doggy --query "Stacks[0].Outputs[?OutputKey=='SNSTopicArn'].OutputValue" --output text
       register: sns_topic_arn

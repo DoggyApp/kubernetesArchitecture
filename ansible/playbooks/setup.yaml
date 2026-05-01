@@ -69,8 +69,14 @@
 
 #########################################################################
 ############# Create GitLabAutomation ########################
-        # Use the GitLab REST API to create a personal access token for automation.
-        # This token is used by subsequent API calls to create groups and projects.
+        - name: Check if automation token already stored in Secrets Manager
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-automation-token \
+              --region us-east-1 2>/dev/null \
+            && echo "exists" || echo "missing"
+          register: automation_secret_check
+
         - name: Create GitLab automation token via Rails console
           shell: |
             sudo gitlab-rails runner "
@@ -83,32 +89,37 @@
               puts token.token
             "
           register: gitlab_automation_token
+          when: automation_secret_check.stdout | trim == "missing"
 
-        # Store the token in Secrets Manager so it is never written to disk in plaintext.
-        # create-secret fails if the secret already exists, so fall back to put-secret-value.
         - name: Store automation token in Secrets Manager
           shell: |
-            aws secretsmanager describe-secret \
+            aws secretsmanager create-secret \
+              --name gitlab-automation-token \
+              --description "GitLab Ansible automation token" \
+              --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
+              --region us-east-1
+          when: automation_secret_check.stdout | trim == "missing"
+
+        - name: Fetch existing automation token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
               --secret-id gitlab-automation-token \
-              --region us-east-1 2>/dev/null \
-            && aws secretsmanager put-secret-value \
-                 --secret-id gitlab-automation-token \
-                 --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
-                 --region us-east-1 \
-            || aws secretsmanager create-secret \
-                 --name gitlab-automation-token \
-                 --description "GitLab Ansible automation token" \
-                 --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
-                 --region us-east-1
+              --region us-east-1 \
+              --query SecretString \
+              --output text
+          register: gitlab_automation_token_existing
+          when: automation_secret_check.stdout | trim == "exists"
 
         - name: Confirm automation token stored
           debug:
             msg: "GitLab automation token created and saved to Secrets Manager as 'gitlab-automation-token'"
 
-        # Store the token for use in later tasks
         - name: Set GitLab token fact
           set_fact:
-            gl_token: "{{ gitlab_automation_token.stdout | trim }}"
+            gl_token: >-
+              {{ gitlab_automation_token.stdout | trim
+                 if automation_secret_check.stdout | trim == "missing"
+                 else gitlab_automation_token_existing.stdout | trim }}
             gl_url: "http://{{ gitlab_alb_url }}"
 
         - name: Create doggyapp GitLab group
