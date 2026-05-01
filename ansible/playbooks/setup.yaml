@@ -413,6 +413,9 @@
             kind: Namespace
             state: present
 
+        - name: Install Helm
+          shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
         - name: Install agentk via Helm
           kubernetes.core.helm:
             name: doggy-agent
@@ -516,10 +519,6 @@
             api_version: v1
             kind: Namespace
             state: present
-
-#This should be done with Kube module 
-        - name: Install Helm
-          shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
         - name: Apply ingress 
           shell: kubectl apply -k "{{ arch_dir }}/ingress/"
