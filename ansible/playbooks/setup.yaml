@@ -815,7 +815,7 @@
             aws secretsmanager get-secret-value \
               --secret-id "{{ postgres_secret_arn }}" \
               --query SecretString \
-              --output text | jq -r 'to_entries[0].value'
+              --output text | python3 -c "import sys,json; print(list(json.load(sys.stdin).values())[0])"
           register: postgres_password
 
         - name: Apply postgres secret to cluster

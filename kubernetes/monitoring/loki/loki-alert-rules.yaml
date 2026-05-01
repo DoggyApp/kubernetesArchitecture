@@ -19,15 +19,39 @@ data:
               summary: "Unhandled error in Angular frontend"
               description: "Detected 'Error:' log entries from container 'webapp' in the last 5 minutes."
     
-      - name: springboot-backend-errors
+      - name: user-service-errors
         rules:
           - alert: SpringBootExceptionDetected
             expr: |
-              count_over_time({app="registry"} |= "ERROR" [5m]) > 0
+              count_over_time({app="user-service"} |= "ERROR" [5m]) > 0
             for: 1m
             labels:
               severity: critical
             annotations:
               summary: "Spring Boot backend exception detected"
-              description: "Detected exception log entries from container 'registry' in the last 5 minutes"
+              description: "Detected exception log entries from container 'user-service' in the last 5 minutes"
+
+      - name: owner-service-errors
+        rules:
+          - alert: SpringBootExceptionDetected
+            expr: |
+              count_over_time({app="owner-service"} |= "ERROR" [5m]) > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Spring Boot backend exception detected"
+              description: "Detected exception log entries from container 'owner-service' in the last 5 minutes"
+
+      - name: organization-service-errors
+        rules:
+          - alert: SpringBootExceptionDetected
+            expr: |
+              count_over_time({app="organization-service"} |= "ERROR" [5m]) > 0
+            for: 1m
+            labels:
+              severity: critical
+            annotations:
+              summary: "Spring Boot backend exception detected"
+              description: "Detected exception log entries from container 'organization-service' in the last 5 minutes"
 
