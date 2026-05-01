@@ -293,20 +293,34 @@
           shell: |
             aws secretsmanager describe-secret \
               --secret-id gitlab-runner-token \
-              --region us-east-1 2>/dev/null \
+              --region us-east-1 > /dev/null 2>&1 \
             && echo "exists" || echo "missing"
           register: runner_secret_check
 
+        - name: Get doggyapp group ID
+          uri:
+            url: "{{ gl_url }}/api/v4/groups/doggyapp"
+            method: GET
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+          register: gl_group_info
+          when: runner_secret_check.stdout | trim == "missing"
+
         - name: Create GitLab Runner for EKS
-          community.general.gitlab_runner:
-            api_url: "{{ gl_url }}"
-            api_token: "{{ gl_token }}"
-            description: doggy-eks-runner
-            tag_list:
-              - k8s
-            group: doggyapp
-            run_untagged: false
-            state: present
+          uri:
+            url: "{{ gl_url }}/api/v4/user/runners"
+            method: POST
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+              Content-Type: application/json
+            body_format: json
+            body:
+              runner_type: group_type
+              group_id: "{{ gl_group_info.json.id }}"
+              description: doggy-eks-runner
+              tag_list: "k8s"
+              run_untagged: false
+            status_code: [200, 201]
           register: gl_runner
           when: runner_secret_check.stdout | trim == "missing"
 
@@ -315,7 +329,7 @@
             aws secretsmanager create-secret \
               --name gitlab-runner-token \
               --description "GitLab Runner token for doggy-eks-runner" \
-              --secret-string "{{ gl_runner.runner.token }}" \
+              --secret-string "{{ gl_runner.json.token }}" \
               --region us-east-1
           when: runner_secret_check.stdout | trim == "missing"
 
