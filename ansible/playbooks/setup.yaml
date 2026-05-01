@@ -72,8 +72,8 @@
         - name: Check if automation token already stored in Secrets Manager
           shell: |
             aws secretsmanager describe-secret \
-              --secret-id gitlab-automation-token \
-              --region us-east-1 2>/dev/null \
+              --secret-id gitlab-automation-token-1 \
+              --region us-east-1 > /dev/null 2>&1 \
             && echo "exists" || echo "missing"
           register: automation_secret_check
 
@@ -94,7 +94,7 @@
         - name: Store automation token in Secrets Manager
           shell: |
             aws secretsmanager create-secret \
-              --name gitlab-automation-token \
+              --name gitlab-automation-token-1 \
               --description "GitLab Ansible automation token" \
               --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
               --region us-east-1
@@ -103,7 +103,7 @@
         - name: Fetch existing automation token from Secrets Manager
           shell: |
             aws secretsmanager get-secret-value \
-              --secret-id gitlab-automation-token \
+              --secret-id gitlab-automation-token-1 \
               --region us-east-1 \
               --query SecretString \
               --output text
@@ -112,7 +112,7 @@
 
         - name: Confirm automation token stored
           debug:
-            msg: "GitLab automation token created and saved to Secrets Manager as 'gitlab-automation-token'"
+            msg: "GitLab automation token created and saved to Secrets Manager as 'gitlab-automation-token-1'"
 
         - name: Set GitLab token fact (new token)
           set_fact:
