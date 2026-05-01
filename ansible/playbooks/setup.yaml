@@ -127,13 +127,44 @@
           when: automation_secret_check.stdout | trim == "exists"
 
         - name: Wait for GitLab to be ready
-          uri:
-            url: "http://{{ gitlab_alb_url }}/-/readiness"
-            status_code: 200
-          register: gitlab_ready
-          until: gitlab_ready.status == 200
-          retries: 30
-          delay: 10
+          shell: |
+            for i in $(seq 1 30); do
+              echo ""
+              echo "=== Attempt $i/30 ==="
+
+              CTL_STATUS=$(sudo gitlab-ctl status 2>&1)
+              echo "$CTL_STATUS"
+
+              # Only check for crashes after attempt 3 (allow 30s for services to start)
+              if [ "$i" -gt 3 ]; then
+                CRASHED=$(echo "$CTL_STATUS" | grep "^down:" || true)
+                if [ -n "$CRASHED" ]; then
+                  echo ""
+                  echo "FATAL: services are down after startup window:"
+                  echo "$CRASHED"
+                  echo ""
+                  echo "--- reading crash logs ---"
+                  echo "$CRASHED" | while IFS= read -r line; do
+                    SERVICE=$(echo "$line" | sed 's/^down: \([^:]*\):.*/\1/')
+                    echo "=== /var/log/gitlab/$SERVICE/current (last 20 lines) ==="
+                    sudo tail -n 20 "/var/log/gitlab/$SERVICE/current" 2>/dev/null || echo "(no log found)"
+                  done
+                  exit 2
+                fi
+              fi
+
+              STATUS=$(curl -o /dev/null -s -w "%{http_code}" --max-time 5 "http://{{ gitlab_alb_url }}/-/readiness" || echo "000")
+              echo "HTTP status: $STATUS"
+              if [ "$STATUS" = "200" ]; then
+                echo "GitLab is ready!"
+                exit 0
+              fi
+
+              sleep 10
+            done
+            echo "GitLab did not become ready after 30 attempts"
+            exit 1
+          register: gitlab_ready_result
 
         - name: Create doggyapp GitLab group
           community.general.gitlab_group:
