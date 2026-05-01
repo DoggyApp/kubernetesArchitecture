@@ -83,7 +83,6 @@
               puts token.token
             "
           register: gitlab_automation_token
-          no_log: true
 
         # Store the token in Secrets Manager so it is never written to disk in plaintext.
         # create-secret fails if the secret already exists, so fall back to put-secret-value.
@@ -101,7 +100,6 @@
                  --description "GitLab Ansible automation token" \
                  --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
                  --region us-east-1
-          no_log: true
 
         - name: Confirm automation token stored
           debug:
@@ -112,7 +110,6 @@
           set_fact:
             gl_token: "{{ gitlab_automation_token.stdout | trim }}"
             gl_url: "http://{{ gitlab_alb_url }}"
-          no_log: true
 
         - name: Create doggyapp GitLab group
           community.general.gitlab_group:
@@ -122,7 +119,6 @@
             path: doggyapp
             visibility: private
             state: present
-          no_log: true
 
         - name: Create GitLab projects for each service
           community.general.gitlab_project:
@@ -134,7 +130,6 @@
             visibility: private
             initialize_with_readme: false
             state: present
-          no_log: true
           loop:
             - { name: "Frontend", path: "frontend" }
             - { name: "OwnerService", path: "owner-service" }
@@ -151,7 +146,6 @@
             visibility: private
             initialize_with_readme: true
             state: present
-          no_log: true
           register: gl_pipeline_config_project
 
         - name: Push agent config.yaml to pipeline-config project
@@ -167,7 +161,6 @@
               content: "{{ lookup('file', '/home/ec2-user/kubernetesArchitecture/gitlab/pipeline-config/.gitlab/agents/doggy-agent/config.yaml') }}"
               commit_message: Add doggy-agent config
             status_code: [200, 201, 400]
-          no_log: true
 
 #########################################################################
 ############# Create AgentK ########################
@@ -178,7 +171,6 @@
             headers:
               PRIVATE-TOKEN: "{{ gl_token }}"
           register: gl_existing_agents
-          no_log: true
 
         - name: Register doggy-agent if not already registered
           uri:
@@ -192,7 +184,6 @@
               name: doggy-agent
             status_code: [200, 201]
           register: gl_new_agent
-          no_log: true
           when: gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | list | length == 0
 
         - name: Set agent ID fact
@@ -201,7 +192,6 @@
               {{ (gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | first).id
                  if (gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | list | length > 0)
                  else gl_new_agent.json.id }}
-          no_log: true
 
         - name: Create agent token
           uri:
@@ -215,7 +205,6 @@
               name: doggy-agent-token
             status_code: [200, 201]
           register: gl_agent_token_resp
-          no_log: true
 
         - name: Store agent token in Secrets Manager
           shell: |
@@ -231,12 +220,10 @@
                  --description "GitLab Kubernetes agent token for doggy-agent" \
                  --secret-string "{{ gl_agent_token_resp.json.token }}" \
                  --region us-east-1
-          no_log: true
 
         - name: Set agent token fact
           set_fact:
             gl_agent_token: "{{ gl_agent_token_resp.json.token }}"
-          no_log: true
 
         - name: Confirm agent registered
           debug:
@@ -266,7 +253,6 @@
             run_untagged: false
             state: present
           register: gl_runner
-          no_log: true
           when: runner_secret_check.stdout | trim == "missing"
 
         - name: Store runner token in Secrets Manager
@@ -276,7 +262,6 @@
               --description "GitLab Runner token for doggy-eks-runner" \
               --secret-string "{{ gl_runner.runner.token }}" \
               --region us-east-1
-          no_log: true
           when: runner_secret_check.stdout | trim == "missing"
 
         - name: Load runner token from Secrets Manager
@@ -287,12 +272,10 @@
               --output text \
               --region us-east-1
           register: gl_runner_token_raw
-          no_log: true
 
         - name: Set runner token fact
           set_fact:
             gl_runner_token: "{{ gl_runner_token_raw.stdout | trim }}"
-          no_log: true
 
         - name: Confirm runner created
           debug:
@@ -321,7 +304,6 @@
                 value: "doggy-app-eks-cluster-0"
                 protected: true
                 masked: false
-          no_log: true
 
 ##########################################################
 ########### INSTALL GITLAB PIPELINE COMPONENTS ##########
@@ -372,7 +354,6 @@
                 token: "{{ gl_agent_token }}"
                 kasAddress: "ws://{{ gitlab_alb_url }}/-/kubernetes-agent/"
             state: present
-          no_log: true
 
         - name: Install GitLab Runner via Helm
           kubernetes.core.helm:
@@ -391,7 +372,6 @@
                 privileged: true
                 tags: "k8s"
             state: present
-          no_log: true
 
 #######################################################################
 ################### Kubernetes Setup ####################################
@@ -750,7 +730,6 @@
               --query SecretString \
               --output text
           register: postgres_password
-          no_log: true
 
         - name: Apply postgres secret to cluster
           kubernetes.core.k8s:
@@ -767,7 +746,6 @@
                 POSTGRES_USER: doggyapp
                 POSTGRES_PASSWORD: "{{ postgres_password.stdout }}"
                 DB_URL: jdbc:postgresql://postgres-service:5432/doggyapp
-          no_log: true
 
  #################################################################
  ######################### DEPLOY PODS ##################################
