@@ -844,7 +844,7 @@
             api_version: networking.k8s.io/v1
             kind: Ingress
             namespace: default
-            name: doggy-ingress
+            name: frontend-ingress
           register: ingress_status
           until: ingress_status.resources | length > 0
           retries: 30
@@ -852,7 +852,7 @@
 
         - name: Get LoadBalancer hostname
           shell: |
-            kubectl get ingress doggy-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            kubectl get ingress frontend-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           register: lb_host
 
         - name: Create alerter config map
