@@ -248,6 +248,14 @@
                  if (gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | list | length > 0)
                  else gl_new_agent.json.id }}
 
+        - name: Check if agent token already stored in Secrets Manager
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-agent-token \
+              --region us-east-1 > /dev/null 2>&1 \
+            && echo "exists" || echo "missing"
+          register: agent_secret_check
+
         - name: Create agent token
           uri:
             url: "{{ gl_url }}/api/v4/projects/{{ gl_pipeline_config_project.project.id }}/cluster_agents/{{ gl_agent_id }}/tokens"
@@ -260,25 +268,36 @@
               name: doggy-agent-token
             status_code: [200, 201]
           register: gl_agent_token_resp
+          when: agent_secret_check.stdout | trim == "missing"
 
         - name: Store agent token in Secrets Manager
           shell: |
-            aws secretsmanager describe-secret \
-              --secret-id gitlab-agent-token \
-              --region us-east-1 2>/dev/null \
-            && aws secretsmanager put-secret-value \
-                 --secret-id gitlab-agent-token \
-                 --secret-string "{{ gl_agent_token_resp.json.token }}" \
-                 --region us-east-1 \
-            || aws secretsmanager create-secret \
-                 --name gitlab-agent-token \
-                 --description "GitLab Kubernetes agent token for doggy-agent" \
-                 --secret-string "{{ gl_agent_token_resp.json.token }}" \
-                 --region us-east-1
+            aws secretsmanager create-secret \
+              --name gitlab-agent-token \
+              --description "GitLab Kubernetes agent token for doggy-agent" \
+              --secret-string "{{ gl_agent_token_resp.json.token }}" \
+              --region us-east-1
+          when: agent_secret_check.stdout | trim == "missing"
 
-        - name: Set agent token fact
+        - name: Fetch existing agent token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
+              --secret-id gitlab-agent-token \
+              --region us-east-1 \
+              --query SecretString \
+              --output text
+          register: gl_agent_token_existing
+          when: agent_secret_check.stdout | trim == "exists"
+
+        - name: Set agent token fact (new token)
           set_fact:
             gl_agent_token: "{{ gl_agent_token_resp.json.token }}"
+          when: agent_secret_check.stdout | trim == "missing"
+
+        - name: Set agent token fact (existing token)
+          set_fact:
+            gl_agent_token: "{{ gl_agent_token_existing.stdout | trim }}"
+          when: agent_secret_check.stdout | trim == "exists"
 
         - name: Confirm agent registered
           debug:
