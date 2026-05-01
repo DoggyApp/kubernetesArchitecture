@@ -877,14 +877,23 @@
               -o jsonpath="{.data.admin-password}" | base64 --decode
           register: grafana_password_raw
 
+        - name: Get GitLab username
+          uri:
+            url: "{{ gl_url }}/api/v4/user"
+            method: GET
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+          register: gitlab_user_info
+
         - name: Write environment info file
           copy:
             dest: /home/ec2-user/environment-info.txt
             content: |
+              gitlab username     : {{ gitlab_user_info.json.username }}
               gitlab temp password : {{ gitlab_temp_password }}
-              gitlab URL : http://{{ gitlab_alb_url }}
-              Web app URL : http://{{ lb_host.stdout }}
-              Grafana User name : admin
-              Grafana Password : {{ grafana_password_raw.stdout }}
+              gitlab URL          : http://{{ gitlab_alb_url }}
+              Web app URL         : http://{{ lb_host.stdout }}
+              Grafana User name   : admin
+              Grafana Password    : {{ grafana_password_raw.stdout }}
             mode: '0600'
 ...
