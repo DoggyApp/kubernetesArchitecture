@@ -435,6 +435,11 @@
         - name: Install Helm
           shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+        - name: Add GitLab Helm repo
+          kubernetes.core.helm_repository:
+            name: gitlab
+            repo_url: https://charts.gitlab.io
+
         - name: Install agentk via Helm
           kubernetes.core.helm:
             name: doggy-agent
@@ -632,11 +637,6 @@
             name: grafana
             repo_url: https://grafana.github.io/helm-charts
           register: installing_grafana_repo
-
-        - name: Add GitLab Helm repo
-          kubernetes.core.helm_repository:
-            name: gitlab
-            repo_url: https://charts.gitlab.io
 
 
 ###############################################################
