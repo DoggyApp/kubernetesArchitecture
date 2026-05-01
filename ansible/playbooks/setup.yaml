@@ -122,6 +122,15 @@
                  else gitlab_automation_token_existing.stdout | trim }}
             gl_url: "http://{{ gitlab_alb_url }}"
 
+        - name: Wait for GitLab to be ready
+          uri:
+            url: "http://{{ gitlab_alb_url }}/-/readiness"
+            status_code: 200
+          register: gitlab_ready
+          until: gitlab_ready.status == 200
+          retries: 30
+          delay: 10
+
         - name: Create doggyapp GitLab group
           community.general.gitlab_group:
             api_url: "{{ gl_url }}"
