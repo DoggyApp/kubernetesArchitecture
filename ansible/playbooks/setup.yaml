@@ -114,13 +114,17 @@
           debug:
             msg: "GitLab automation token created and saved to Secrets Manager as 'gitlab-automation-token'"
 
-        - name: Set GitLab token fact
+        - name: Set GitLab token fact (new token)
           set_fact:
-            gl_token: >-
-              {{ gitlab_automation_token.stdout | trim
-                 if automation_secret_check.stdout | trim == "missing"
-                 else gitlab_automation_token_existing.stdout | trim }}
+            gl_token: "{{ gitlab_automation_token.stdout | trim }}"
             gl_url: "http://{{ gitlab_alb_url }}"
+          when: automation_secret_check.stdout | trim == "missing"
+
+        - name: Set GitLab token fact (existing token)
+          set_fact:
+            gl_token: "{{ gitlab_automation_token_existing.stdout | trim }}"
+            gl_url: "http://{{ gitlab_alb_url }}"
+          when: automation_secret_check.stdout | trim == "exists"
 
         - name: Wait for GitLab to be ready
           uri:
