@@ -1,14 +1,6 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: IAM role for the AWS EBS CSI driver (IRSA)
 
-Parameters:
-  OidcUrl:
-    Type: String
-    Description: EKS OIDC provider URL (without https://)
-  AwsAccountId:
-    Type: String
-    Description: AWS account ID
-
 Resources:
   EbsCsiDriverRole:
     Type: AWS::IAM::Role
@@ -19,12 +11,12 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Federated: !Sub "arn:aws:iam::${AwsAccountId}:oidc-provider/${OidcUrl}"
+              Federated: "arn:aws:iam::${AWS_ID}:oidc-provider/${OIDC_URL}"
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                !Sub "${OidcUrl}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
-                !Sub "${OidcUrl}:aud": "sts.amazonaws.com"
+                "${OIDC_URL}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+                "${OIDC_URL}:aud": "sts.amazonaws.com"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
 

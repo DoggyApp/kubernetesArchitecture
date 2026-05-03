@@ -574,11 +574,18 @@
             OIDC_URL: "{{ oidc_url.stdout }}"
             AWS_ID: "{{ aws_id }}"
 
-        - name: Render the SNS stack yaml 
+        - name: Render the SNS stack yaml
           shell: |
             envsubst < "{{ arch_dir }}/monitoring/alerting/cf-sns.yaml" > "{{ config_dir }}/cf-sns-up.yaml"
-          environment: 
+          environment:
             EMAIL: "{{ email }}"
+
+        - name: Render the EBS CSI role YAML
+          shell: |
+            envsubst < "{{ arch_dir }}/default/cf-ebs-csi-role.yaml" > "{{ config_dir }}/cf-ebs-csi-role-up.yaml"
+          environment:
+            OIDC_URL: "{{ oidc_url.stdout }}"
+            AWS_ID: "{{ aws_id }}"
 
 
 
@@ -622,13 +629,10 @@
         - name: Deploy EBS CSI driver IAM role with CloudFormation
           amazon.aws.cloudformation:
             stack_name: ebs-csi-driver-iam-role
-            template_body: "{{ lookup('file', arch_dir + '/default/cf-ebs-csi-role.yaml') }}"
+            template_body: "{{ lookup('file', config_dir + '/cf-ebs-csi-role-up.yaml') }}"
             state: present
             capabilities:
               - CAPABILITY_NAMED_IAM
-            template_parameters:
-              OidcUrl: "{{ oidc_url.stdout | trim }}"
-              AwsAccountId: "{{ aws_id }}"
           register: deploying_ebs_csi_stack
           async: 300
           poll: 0
