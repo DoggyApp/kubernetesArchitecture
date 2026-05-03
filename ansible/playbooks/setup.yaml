@@ -619,6 +619,24 @@
           set_fact:
             sns_stack_job_id: "{{ deploying_sns_stack.ansible_job_id | default('') }}"
 
+        - name: Deploy EBS CSI driver IAM role with CloudFormation
+          amazon.aws.cloudformation:
+            stack_name: ebs-csi-driver-iam-role
+            template_body: "{{ lookup('file', arch_dir + '/default/cf-ebs-csi-role.yaml') }}"
+            state: present
+            capabilities:
+              - CAPABILITY_NAMED_IAM
+            template_parameters:
+              OidcUrl: "{{ oidc_url.stdout | trim }}"
+              AwsAccountId: "{{ aws_id }}"
+          register: deploying_ebs_csi_stack
+          async: 300
+          poll: 0
+
+        - name: Set EBS CSI stack job ID if async used
+          set_fact:
+            ebs_csi_stack_job_id: "{{ deploying_ebs_csi_stack.ansible_job_id | default('') }}"
+
 
 ##########################################################
 ########### INSTALL REPOSITORIES ########################
@@ -842,6 +860,62 @@
                 POSTGRES_PASSWORD: "{{ postgres_password.stdout }}"
                 DB_URL: jdbc:postgresql://postgres-service:5432/doggyapp
 
+        - name: Wait for EBS CSI driver IAM role stack to be deployed
+          async_status:
+            jid: "{{ ebs_csi_stack_job_id }}"
+          register: deploying_ebs_csi_stack_status
+          until: deploying_ebs_csi_stack_status.finished
+          retries: 60
+          delay: 5
+          when: ebs_csi_stack_job_id != ''
+
+        - name: Get EBS CSI driver role ARN
+          amazon.aws.cloudformation_info:
+            stack_name: ebs-csi-driver-iam-role
+          register: ebs_csi_stack_info
+
+        - name: Set EBS CSI role ARN fact
+          set_fact:
+            ebs_csi_role_arn: "{{ ebs_csi_stack_info.cloudformation['ebs-csi-driver-iam-role'].stack_outputs.EbsCsiDriverRoleArn }}"
+
+        - name: Install EBS CSI driver addon
+          amazon.aws.eks_addon:
+            cluster_name: "{{ cluster_name }}"
+            addon_name: aws-ebs-csi-driver
+            service_account_role_arn: "{{ ebs_csi_role_arn }}"
+            state: present
+
+        - name: Wait for EBS CSI driver addon to be active
+          amazon.aws.eks_addon_info:
+            cluster_name: "{{ cluster_name }}"
+            addon_name: aws-ebs-csi-driver
+          register: ebs_csi_addon_status
+          until: ebs_csi_addon_status.addons[0].status == "ACTIVE"
+          retries: 30
+          delay: 10
+
+        - name: Create CSI-backed gp2 storage class
+          kubernetes.core.k8s:
+            state: present
+            definition:
+              apiVersion: storage.k8s.io/v1
+              kind: StorageClass
+              metadata:
+                name: gp2
+                annotations:
+                  storageclass.kubernetes.io/is-default-class: "true"
+              provisioner: ebs.csi.aws.com
+              volumeBindingMode: WaitForFirstConsumer
+              reclaimPolicy: Delete
+              parameters:
+                type: gp2
+
+        - name: Deploy postgres
+          kubernetes.core.k8s:
+            state: present
+            src: "{{ arch_dir }}/default/postgres.yaml"
+            apply: true
+
  #################################################################
  ######################### DEPLOY PODS ##################################
 
@@ -863,12 +937,15 @@
             kubectl get ingress frontend-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           register: lb_host
 
-        - name: Create alerter config map
+        - name: Create loadbalancer-config configmap
           shell: |
-            kubectl create configmap alerter-config \
+            kubectl create configmap loadbalancer-config \
               --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
-              --namespace=monitoring \
+              --namespace={{ item }} \
               --dry-run=client -o yaml | kubectl apply -f -
+          loop:
+            - default
+            - monitoring
 
         - name: Create webhook
           kubernetes.core.k8s:

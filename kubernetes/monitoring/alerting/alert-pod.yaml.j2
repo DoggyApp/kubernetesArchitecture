@@ -27,7 +27,7 @@ spec:
             - name: LOAD_BALANCER_URL
               valueFrom:
                 configMapKeyRef:
-                  name: alerter-config
+                  name: loadbalancer-config
                   key: LOAD_BALANCER_URL
           resources:
             requests:

@@ -29,7 +29,7 @@ spec:
             - name: LOAD_BALANCER_URL
               valueFrom:
                 configMapKeyRef:
-                  name: frontend-config
+                  name: loadbalancer-config
                   key: LOAD_BALANCER_URL
 ---
 apiVersion: v1
@@ -86,7 +86,7 @@ spec:
             - name: CORS_ALLOWED_ORIGIN
               valueFrom:
                 configMapKeyRef:
-                  name: frontend-config
+                  name: loadbalancer-config
                   key: LOAD_BALANCER_URL
           resources:
             requests:
@@ -154,7 +154,7 @@ spec:
             - name: CORS_ALLOWED_ORIGIN
               valueFrom:
                 configMapKeyRef:
-                  name: frontend-config
+                  name: loadbalancer-config
                   key: LOAD_BALANCER_URL
           resources:
             requests:
@@ -222,7 +222,7 @@ spec:
             - name: CORS_ALLOWED_ORIGIN
               valueFrom:
                 configMapKeyRef:
-                  name: frontend-config
+                  name: loadbalancer-config
                   key: LOAD_BALANCER_URL
           resources:
             requests:
