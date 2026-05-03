@@ -879,18 +879,23 @@
             ebs_csi_role_arn: "{{ ebs_csi_stack_info.cloudformation['ebs-csi-driver-iam-role'].stack_outputs.EbsCsiDriverRoleArn }}"
 
         - name: Install EBS CSI driver addon
-          amazon.aws.eks_addon:
-            cluster_name: "{{ cluster_name }}"
-            addon_name: aws-ebs-csi-driver
-            service_account_role_arn: "{{ ebs_csi_role_arn }}"
-            state: present
+          shell: |
+            aws eks create-addon \
+              --cluster-name {{ cluster_name }} \
+              --addon-name aws-ebs-csi-driver \
+              --service-account-role-arn {{ ebs_csi_role_arn }} \
+              --region {{ region }} 2>&1 | grep -v "already exists" || true
 
         - name: Wait for EBS CSI driver addon to be active
-          amazon.aws.eks_addon_info:
-            cluster_name: "{{ cluster_name }}"
-            addon_name: aws-ebs-csi-driver
+          shell: |
+            aws eks describe-addon \
+              --cluster-name {{ cluster_name }} \
+              --addon-name aws-ebs-csi-driver \
+              --region {{ region }} \
+              --query "addon.status" \
+              --output text
           register: ebs_csi_addon_status
-          until: ebs_csi_addon_status.addons[0].status == "ACTIVE"
+          until: ebs_csi_addon_status.stdout | trim == "ACTIVE"
           retries: 30
           delay: 10
 
