@@ -42,7 +42,7 @@ data:
         dog_id   SERIAL PRIMARY KEY,
         dog_name VARCHAR(255) NOT NULL,
         breed    VARCHAR(255) NOT NULL,
-        age      INTEGER      NOT NULL,
+        birthday DATE         NOT NULL,
         weight   INTEGER      NOT NULL,
         image    VARCHAR(500),
         owner_id INTEGER REFERENCES owners(owner_id) ON DELETE CASCADE
