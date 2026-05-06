@@ -1,0 +1,480 @@
+---
+- name: Install and configure GitLab
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  environment:
+    AWS_PROFILE: doggy-admin
+  vars_prompt:
+  - name: aws_id
+    prompt: "We need your AWS ID to set up the pipeline, it won't go anywhere"
+    private: False
+    default: "109798190983"
+
+
+  tasks:
+#############################################################
+################### Install GitLabCE ########################
+    - name: Query GitLab ALB DNS from AWS
+      shell: |
+        aws elbv2 describe-load-balancers \
+          --names doggy-gitlab-alb \
+          --query "LoadBalancers[0].DNSName" \
+          --output text
+      register: gitlab_alb_dns
+
+    - name: Set gitlab_alb_url fact
+      set_fact:
+        gitlab_alb_url: "{{ gitlab_alb_dns.stdout | trim }}"
+
+    - name: Install and configure GitLab CE
+      block:
+
+        # GitLab CE requires the official package repository to be added first.
+        # This script downloads and installs the gitlab-ce apt/yum repo.
+        # For ARM64 (Graviton), GitLab CE supports aarch64 from v15+.
+        - name: Add GitLab CE package repository
+          shell: |
+            curl -sS https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh \
+              | sudo bash
+          args:
+            creates: /etc/yum.repos.d/gitlab_gitlab-ce.repo
+
+        # Install GitLab CE with the external URL set to the ALB DNS name.
+        # GITLAB_ALB_URL must be passed as an extra var from the EC2 UserData
+        # (add it to the ansible-playbook command alongside email/aws_id).
+        # The EXTERNAL_URL tells GitLab what hostname to use for git clone URLs,
+        # web hooks, and the GitLab KAS WebSocket endpoint.
+        - name: Install GitLab CE
+          shell: |
+            EXTERNAL_URL="http://{{ gitlab_alb_url }}" \
+            sudo yum install -y gitlab-ce
+          environment:
+            EXTERNAL_URL: "http://{{ gitlab_alb_url }}"
+          args:
+            creates: /etc/gitlab/gitlab.rb
+
+        - name: Set GitLab external_url in gitlab.rb
+          lineinfile:
+            path: /etc/gitlab/gitlab.rb
+            regexp: "^external_url"
+            line: "external_url 'http://{{ gitlab_alb_url }}'"
+            state: present
+          become: true
+
+        # gitlab-ctl reconfigure reads /etc/gitlab/gitlab.rb and applies the config.
+        # It takes 2-5 minutes — this is normal.
+        - name: Reconfigure GitLab
+          shell: sudo gitlab-ctl reconfigure
+          async: 600
+          poll: 10
+
+        - name: Read GitLab initial root password
+          shell: sudo grep 'Password:' /etc/gitlab/initial_root_password | awk '{print $2}'
+          register: gitlab_initial_password_raw
+
+        - name: Set GitLab temp password fact
+          set_fact:
+            gitlab_temp_password: "{{ gitlab_initial_password_raw.stdout | trim }}"
+
+#########################################################################
+############# Create GitLabAutomation ########################
+        - name: Check if automation token already stored in Secrets Manager
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-automation-token-1 \
+              --region us-east-1 > /dev/null 2>&1 \
+            && echo "exists" || echo "missing"
+          register: automation_secret_check
+
+        - name: Create GitLab automation token via Rails console
+          shell: |
+            sudo gitlab-rails runner "
+              user = User.find_by_username('root')
+              token = user.personal_access_tokens.create!(
+                name: 'ansible-automation',
+                scopes: ['api', 'read_repository', 'write_repository'],
+                expires_at: 1.year.from_now
+              )
+              puts token.token
+            "
+          register: gitlab_automation_token
+          when: automation_secret_check.stdout | trim == "missing"
+
+        - name: Store automation token in Secrets Manager
+          shell: |
+            aws secretsmanager create-secret \
+              --name gitlab-automation-token-1 \
+              --description "GitLab Ansible automation token" \
+              --secret-string "{{ gitlab_automation_token.stdout | trim }}" \
+              --region us-east-1
+          when: automation_secret_check.stdout | trim == "missing"
+
+        - name: Fetch existing automation token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
+              --secret-id gitlab-automation-token-1 \
+              --region us-east-1 \
+              --query SecretString \
+              --output text
+          register: gitlab_automation_token_existing
+          when: automation_secret_check.stdout | trim == "exists"
+
+        - name: Confirm automation token stored
+          debug:
+            msg: "GitLab automation token created and saved to Secrets Manager as 'gitlab-automation-token-1'"
+
+        - name: Set GitLab token fact (new token)
+          set_fact:
+            gl_token: "{{ gitlab_automation_token.stdout | trim }}"
+            gl_url: "http://localhost"
+          when: automation_secret_check.stdout | trim == "missing"
+
+        - name: Set GitLab token fact (existing token)
+          set_fact:
+            gl_token: "{{ gitlab_automation_token_existing.stdout | trim }}"
+            gl_url: "http://localhost"
+          when: automation_secret_check.stdout | trim == "exists"
+
+        - name: Wait for GitLab to be ready
+          shell: |
+            for i in $(seq 1 30); do
+              echo ""
+              echo "=== Attempt $i/30 (checking localhost/-/readiness) ==="
+
+              CTL_STATUS=$(sudo gitlab-ctl status 2>&1)
+              echo "$CTL_STATUS"
+
+              # Only check for crashes after attempt 3 (allow 30s for services to start)
+              if [ "$i" -gt 3 ]; then
+                CRASHED=$(echo "$CTL_STATUS" | grep "^down:" || true)
+                if [ -n "$CRASHED" ]; then
+                  echo ""
+                  echo "FATAL: services are down after startup window:"
+                  echo "$CRASHED"
+                  echo ""
+                  echo "--- reading crash logs ---"
+                  echo "$CRASHED" | while IFS= read -r line; do
+                    SERVICE=$(echo "$line" | sed 's/^down: \([^:]*\):.*/\1/')
+                    echo "=== /var/log/gitlab/$SERVICE/current (last 20 lines) ==="
+                    sudo tail -n 20 "/var/log/gitlab/$SERVICE/current" 2>/dev/null || echo "(no log found)"
+                  done
+                  exit 2
+                fi
+              fi
+
+              STATUS=$(curl -o /dev/null -s -w "%{http_code}" --max-time 5 "http://localhost/-/readiness" || echo "000")
+              echo "HTTP status: $STATUS"
+              if [ "$STATUS" = "200" ]; then
+                echo "GitLab is ready!"
+                exit 0
+              fi
+
+              sleep 10
+            done
+            echo "GitLab did not become ready after 30 attempts"
+            exit 1
+          register: gitlab_ready_result
+
+        - name: Create doggyapp GitLab group
+          community.general.gitlab_group:
+            api_url: "{{ gl_url }}"
+            api_token: "{{ gl_token }}"
+            name: doggyapp
+            path: doggyapp
+            visibility: private
+            state: present
+
+        - name: Create GitLab projects for each service
+          community.general.gitlab_project:
+            api_url: "{{ gl_url }}"
+            api_token: "{{ gl_token }}"
+            name: "{{ item.name }}"
+            path: "{{ item.path }}"
+            group: doggyapp
+            visibility: private
+            initialize_with_readme: false
+            state: present
+          loop:
+            - { name: "Frontend", path: "frontend" }
+            - { name: "OwnerService", path: "owner-service" }
+            - { name: "UserService", path: "user-service" }
+            - { name: "OrganizationService", path: "org-service" }
+
+        - name: Create pipeline-config project
+          community.general.gitlab_project:
+            api_url: "{{ gl_url }}"
+            api_token: "{{ gl_token }}"
+            name: pipeline-config
+            path: pipeline-config
+            group: doggyapp
+            visibility: private
+            initialize_with_readme: true
+            state: present
+          register: gl_pipeline_config_project
+
+        - name: Push agent config.yaml to pipeline-config project
+          uri:
+            url: "{{ gl_url }}/api/v4/projects/{{ gl_pipeline_config_project.project.id }}/repository/files/.gitlab%2Fagents%2Fdoggy-agent%2Fconfig.yaml"
+            method: POST
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+              Content-Type: application/json
+            body_format: json
+            body:
+              branch: main
+              content: "{{ lookup('file', '/home/ec2-user/kubernetesArchitecture/gitlab/pipeline-config/.gitlab/agents/doggy-agent/config.yaml') }}"
+              commit_message: Add doggy-agent config
+            status_code: [200, 201, 400]
+
+#########################################################################
+############# Create AgentK ########################
+        - name: List existing cluster agents
+          uri:
+            url: "{{ gl_url }}/api/v4/projects/{{ gl_pipeline_config_project.project.id }}/cluster_agents"
+            method: GET
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+          register: gl_existing_agents
+
+        - name: Register doggy-agent if not already registered
+          uri:
+            url: "{{ gl_url }}/api/v4/projects/{{ gl_pipeline_config_project.project.id }}/cluster_agents"
+            method: POST
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+              Content-Type: application/json
+            body_format: json
+            body:
+              name: doggy-agent
+            status_code: [200, 201]
+          register: gl_new_agent
+          when: gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | list | length == 0
+
+        - name: Set agent ID fact
+          set_fact:
+            gl_agent_id: >-
+              {{ (gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | first).id
+                 if (gl_existing_agents.json | selectattr('name', 'equalto', 'doggy-agent') | list | length > 0)
+                 else gl_new_agent.json.id }}
+
+        - name: Check if agent token already stored in Secrets Manager
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-agent-token \
+              --region us-east-1 > /dev/null 2>&1 \
+            && echo "exists" || echo "missing"
+          register: agent_secret_check
+
+        - name: Create agent token
+          uri:
+            url: "{{ gl_url }}/api/v4/projects/{{ gl_pipeline_config_project.project.id }}/cluster_agents/{{ gl_agent_id }}/tokens"
+            method: POST
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+              Content-Type: application/json
+            body_format: json
+            body:
+              name: doggy-agent-token
+            status_code: [200, 201]
+          register: gl_agent_token_resp
+          when: agent_secret_check.stdout | trim == "missing"
+
+        - name: Store agent token in Secrets Manager
+          shell: |
+            aws secretsmanager create-secret \
+              --name gitlab-agent-token \
+              --description "GitLab Kubernetes agent token for doggy-agent" \
+              --secret-string "{{ gl_agent_token_resp.json.token }}" \
+              --region us-east-1
+          when: agent_secret_check.stdout | trim == "missing"
+
+        - name: Fetch existing agent token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
+              --secret-id gitlab-agent-token \
+              --region us-east-1 \
+              --query SecretString \
+              --output text
+          register: gl_agent_token_existing
+          when: agent_secret_check.stdout | trim == "exists"
+
+        - name: Set agent token fact (new token)
+          set_fact:
+            gl_agent_token: "{{ gl_agent_token_resp.json.token }}"
+          when: agent_secret_check.stdout | trim == "missing"
+
+        - name: Set agent token fact (existing token)
+          set_fact:
+            gl_agent_token: "{{ gl_agent_token_existing.stdout | trim }}"
+          when: agent_secret_check.stdout | trim == "exists"
+
+        - name: Confirm agent registered
+          debug:
+            msg: "GitLab agent 'doggy-agent' registered (ID: {{ gl_agent_id }}) and token stored in Secrets Manager as 'gitlab-agent-token'"
+
+#########################################################################
+############# Create Runner ########################
+        # Check Secrets Manager first — the runner token is only visible at creation
+        # time, so on re-runs we load the previously stored value instead of
+        # registering a duplicate runner.
+        - name: Check if runner token already stored in Secrets Manager
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-runner-token \
+              --region us-east-1 > /dev/null 2>&1 \
+            && echo "exists" || echo "missing"
+          register: runner_secret_check
+
+        - name: Get doggyapp group ID
+          uri:
+            url: "{{ gl_url }}/api/v4/groups/doggyapp"
+            method: GET
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+          register: gl_group_info
+          when: runner_secret_check.stdout | trim == "missing"
+
+        - name: Create GitLab Runner for EKS
+          uri:
+            url: "{{ gl_url }}/api/v4/user/runners"
+            method: POST
+            headers:
+              PRIVATE-TOKEN: "{{ gl_token }}"
+              Content-Type: application/json
+            body_format: json
+            body:
+              runner_type: group_type
+              group_id: "{{ gl_group_info.json.id }}"
+              description: doggy-eks-runner
+              tag_list: "k8s"
+              run_untagged: false
+            status_code: [200, 201]
+          register: gl_runner
+          when: runner_secret_check.stdout | trim == "missing"
+
+        - name: Store runner token in Secrets Manager
+          shell: |
+            aws secretsmanager create-secret \
+              --name gitlab-runner-token \
+              --description "GitLab Runner token for doggy-eks-runner" \
+              --secret-string "{{ gl_runner.json.token }}" \
+              --region us-east-1
+          when: runner_secret_check.stdout | trim == "missing"
+
+        - name: Load runner token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
+              --secret-id gitlab-runner-token \
+              --query SecretString \
+              --output text \
+              --region us-east-1
+          register: gl_runner_token_raw
+
+        - name: Set runner token fact
+          set_fact:
+            gl_runner_token: "{{ gl_runner_token_raw.stdout | trim }}"
+
+        - name: Confirm runner created
+          debug:
+            msg: "GitLab Runner 'doggy-eks-runner' ready and token loaded from Secrets Manager"
+
+        - name: Set group CI/CD variables
+          community.general.gitlab_group_variable:
+            api_url: "{{ gl_url }}"
+            api_token: "{{ gl_token }}"
+            group: doggyapp
+            purge: false
+            variables:
+              - name: AWS_ACCOUNT_ID
+                value: "109798190983"
+                protected: true
+                masked: false
+              - name: AWS_REGION
+                value: "us-east-1"
+                protected: true
+                masked: false
+              - name: ECR_REGISTRY
+                value: "109798190983.dkr.ecr.us-east-1.amazonaws.com"
+                protected: true
+                masked: false
+              - name: CLUSTER_NAME
+                value: "doggy-app-eks-cluster-0"
+                protected: true
+                masked: false
+
+##########################################################
+########### INSTALL GITLAB PIPELINE COMPONENTS ##########
+
+    - name: Install GitLab pipeline components
+      block:
+        - name: Get OIDC URL for runner role trust policy
+          shell: |
+            aws eks describe-cluster \
+              --name doggy-app-eks-cluster-0 \
+              --query "cluster.identity.oidc.issuer" \
+              --output text | sed 's|https://||'
+          register: runner_oidc_url
+
+        - name: Deploy GitLab runner IAM role
+          amazon.aws.cloudformation:
+            stack_name: gitlab-runner-iam-role
+            template_body: "{{ lookup('file', '/home/ec2-user/kubernetesArchitecture/gitlab/runner/runner-role.yaml') }}"
+            template_parameters:
+              AwsAccountId: "{{ aws_id }}"
+              OidcUrl: "{{ runner_oidc_url.stdout | trim }}"
+            state: present
+            capabilities:
+              - CAPABILITY_NAMED_IAM
+
+        - name: Get runner role ARN
+          shell: |
+            aws cloudformation describe-stacks \
+              --stack-name gitlab-runner-iam-role \
+              --query "Stacks[0].Outputs[?OutputKey=='GitLabRunnerRoleArn'].OutputValue" \
+              --output text
+          register: runner_role_arn
+
+        - name: Create gitlab namespace
+          kubernetes.core.k8s:
+            name: gitlab
+            api_version: v1
+            kind: Namespace
+            state: present
+
+        - name: Install Helm
+          shell: curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+
+        - name: Add GitLab Helm repo
+          kubernetes.core.helm_repository:
+            name: gitlab
+            repo_url: https://charts.gitlab.io
+
+        - name: Install agentk via Helm
+          kubernetes.core.helm:
+            name: doggy-agent
+            chart_ref: gitlab/gitlab-agent
+            release_namespace: gitlab
+            values:
+              config:
+                token: "{{ gl_agent_token }}"
+                kasAddress: "ws://{{ gitlab_alb_url }}/-/kubernetes-agent/"
+            state: present
+
+        - name: Install GitLab Runner via Helm
+          kubernetes.core.helm:
+            name: gitlab-runner
+            chart_ref: gitlab/gitlab-runner
+            release_namespace: gitlab
+            values:
+              gitlabUrl: "http://{{ gitlab_alb_url }}"
+              runnerToken: "{{ gl_runner_token }}"
+              rbac:
+                create: true
+              serviceAccount:
+                annotations:
+                  eks.amazonaws.com/role-arn: "{{ runner_role_arn.stdout | trim }}"
+              runners:
+                privileged: true
+                tags: "k8s"
+            state: present
