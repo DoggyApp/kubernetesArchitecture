@@ -62,30 +62,45 @@
             --region us-east-1 \
             --name doggy-app-eks-cluster-0
 
-    - name: Check if doggy-admin already mapped in aws-auth
-      shell: |
-        env -u AWS_PROFILE \
-          AWS_CONFIG_FILE=/dev/null \
-          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
-          eksctl get iamidentitymapping \
-            --cluster doggy-app-eks-cluster-0 \
-            --region us-east-1 \
-            --arn "{{ doggy_role_arn }}" 2>&1
-      register: existing_mapping
-      failed_when: false
+    - name: Write aws-auth patch script
+      copy:
+        dest: /tmp/patch-aws-auth.py
+        content: |
+          import subprocess, json, yaml, sys
 
-    - name: Add doggy-admin role to aws-auth
+          role_arn = sys.argv[1]
+
+          result = subprocess.run(
+              ['kubectl', 'get', 'configmap', 'aws-auth', '-n', 'kube-system', '-o', 'json'],
+              capture_output=True, text=True
+          )
+          cm = json.loads(result.stdout)
+          map_roles = yaml.safe_load(cm['data'].get('mapRoles', '') or '[]') or []
+
+          if not any(r.get('rolearn') == role_arn for r in map_roles):
+              map_roles.append({
+                  'rolearn': role_arn,
+                  'username': 'doggy-admin',
+                  'groups': ['system:masters']
+              })
+              cm['data']['mapRoles'] = yaml.dump(map_roles, default_flow_style=False)
+
+          apply = subprocess.run(
+              ['kubectl', 'apply', '-f', '-'],
+              input=json.dumps(cm),
+              capture_output=True, text=True
+          )
+          print(apply.stdout)
+          if apply.returncode != 0:
+              print(apply.stderr, file=sys.stderr)
+              sys.exit(apply.returncode)
+
+    - name: Patch aws-auth ConfigMap to add doggy-admin
       shell: |
         env -u AWS_PROFILE \
           AWS_CONFIG_FILE=/dev/null \
           AWS_SHARED_CREDENTIALS_FILE=/dev/null \
-          eksctl create iamidentitymapping \
-            --cluster doggy-app-eks-cluster-0 \
-            --region us-east-1 \
-            --arn "{{ doggy_role_arn }}" \
-            --group system:masters \
-            --username doggy-admin
-      when: doggy_role_arn not in existing_mapping.stdout
+          python3 /tmp/patch-aws-auth.py "{{ doggy_role_arn }}"
 
     - name: Update kubeconfig for doggy-admin
       shell: aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0
