@@ -38,7 +38,7 @@
         AWS_PROFILE: doggy-admin
       when: current_auth_mode.stdout | trim != 'API_AND_CONFIG_MAP'
 
-    - name: Wait for cluster config update to complete
+    - name: Wait for cluster to be ACTIVE
       shell: |
         env -u AWS_PROFILE \
           AWS_CONFIG_FILE=/dev/null \
@@ -52,47 +52,46 @@
       until: cluster_status.stdout | trim == "ACTIVE"
       retries: 20
       delay: 15
-      when: current_auth_mode.stdout | trim != 'API_AND_CONFIG_MAP'
 
-
-    - name: Check if access entry already exists
+    - name: Update kubeconfig using instance profile
       shell: |
-        aws eks describe-access-entry \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --region us-east-1 2>&1
-      environment:
-        AWS_PROFILE: doggy-admin
-      register: existing_entry
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks update-kubeconfig \
+            --region us-east-1 \
+            --name doggy-app-eks-cluster-0
+
+    - name: Check if doggy-admin already mapped in aws-auth
+      shell: |
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          eksctl get iamidentitymapping \
+            --cluster doggy-app-eks-cluster-0 \
+            --region us-east-1 \
+            --arn "{{ doggy_role_arn }}" 2>&1
+      register: existing_mapping
       failed_when: false
 
-    - name: Create EKS access entry for doggy-admin
+    - name: Add doggy-admin role to aws-auth
       shell: |
-        aws eks create-access-entry \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --region us-east-1
-      environment:
-        AWS_PROFILE: doggy-admin
-      when: existing_entry.rc != 0
-
-    - name: Associate cluster admin policy to doggy-admin
-      shell: |
-        aws eks associate-access-policy \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --access-scope type=cluster \
-          --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-          --region us-east-1
-      environment:
-        AWS_PROFILE: doggy-admin
-      when: existing_entry.rc != 0
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          eksctl create iamidentitymapping \
+            --cluster doggy-app-eks-cluster-0 \
+            --region us-east-1 \
+            --arn "{{ doggy_role_arn }}" \
+            --group system:masters \
+            --username doggy-admin
+      when: doggy_role_arn not in existing_mapping.stdout
 
     - name: Update kubeconfig for doggy-admin
       shell: aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0
       environment:
         AWS_PROFILE: doggy-admin
 
-    - name: Confirm access entry
+    - name: Confirm mapping
       debug:
-        msg: "doggy-admin role '{{ doggy_role_arn }}' now has AmazonEKSClusterAdminPolicy on the cluster"
+        msg: "doggy-admin role '{{ doggy_role_arn }}' is now mapped to system:masters in aws-auth"
