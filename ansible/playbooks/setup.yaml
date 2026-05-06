@@ -523,7 +523,7 @@
 
 # this should be done with AWS Module 
         - name: Update kubeconfig
-          shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }} --profile eks-cluster-admin
+          shell: aws eks update-kubeconfig --region {{ region }} --name {{ cluster_name }}
 
 # is there an eks module 
         - name: Associate IAM OIDC provider
@@ -946,10 +946,28 @@
             kubectl get ingress frontend-ingress -n default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           register: lb_host
 
+        - name: Get hosted zone ID for doggyapp.click
+          shell: |
+            aws route53 list-hosted-zones-by-name \
+              --dns-name doggyapp.click \
+              --query "HostedZones[0].Id" \
+              --output text | cut -d'/' -f3
+          register: hosted_zone_id
+
+        - name: Deploy DNS records CloudFormation stack
+          amazon.aws.cloudformation:
+            stack_name: doggy-dns-tls
+            template_body: "{{ lookup('file', arch_dir + '/ingress/cf-dns-tls.yaml') }}"
+            template_parameters:
+              NlbHostname: "{{ lb_host.stdout }}"
+              HostedZoneId: "{{ hosted_zone_id.stdout | trim }}"
+            state: present
+          register: dns_tls_stack
+
         - name: Create loadbalancer-config configmap
           shell: |
             kubectl create configmap loadbalancer-config \
-              --from-literal=LOAD_BALANCER_URL=http://{{ lb_host.stdout }} \
+              --from-literal=LOAD_BALANCER_URL=https://doggyapp.click \
               --namespace={{ item }} \
               --dry-run=client -o yaml | kubectl apply -f -
           loop:
@@ -986,7 +1004,7 @@
               gitlab username     : {{ gitlab_user_info.json.username }}
               gitlab temp password : {{ gitlab_temp_password }}
               gitlab URL          : http://{{ gitlab_alb_url }}
-              Web app URL         : http://{{ lb_host.stdout }}
+              Web app URL         : https://doggyapp.click
               Grafana User name   : admin
               Grafana Password    : {{ grafana_password_raw.stdout }}
             mode: '0600'

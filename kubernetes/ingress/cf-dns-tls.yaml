@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Creates Route 53 records pointing doggyapp.click at the EKS NLB.
+  Deployed by Ansible after the NLB hostname is known.
+  The ACM certificate and hosted zone are provisioned separately via the AWS console.
+
+Parameters:
+  NlbHostname:
+    Type: String
+    Description: DNS hostname of the NLB provisioned by the ingress-nginx-controller service
+
+  HostedZoneId:
+    Type: String
+    Description: Route 53 hosted zone ID for doggyapp.click
+
+  # Fixed per-region value for NLBs — not your hosted zone ID.
+  # Full list: https://docs.aws.amazon.com/general/latest/gr/elb.html
+  NlbHostedZoneId:
+    Type: String
+    Default: Z26RNL4JYFTOTI
+    Description: Route 53 alias target hosted zone ID for NLBs in us-east-1
+
+Resources:
+
+  # doggyapp.click → NLB (alias — no TTL, AWS manages health internally)
+  ApexAliasRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: doggyapp.click
+      Type: A
+      AliasTarget:
+        DNSName: !Ref NlbHostname
+        HostedZoneId: !Ref NlbHostedZoneId
+        EvaluateTargetHealth: true
+
+  # www.doggyapp.click → apex
+  WwwRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref HostedZoneId
+      Name: www.doggyapp.click
+      Type: CNAME
+      TTL: "300"
+      ResourceRecords:
+        - doggyapp.click
+
+Outputs:
+  DomainUrl:
+    Value: https://doggyapp.click

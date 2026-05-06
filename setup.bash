@@ -20,7 +20,7 @@ export OPENAI_KEY="openai_key"
 export CLUSTER_NAME="doggy-app-eks-cluster-0"
 export NODEGROUP_NAME="doggy-app-eks-ng-monitoring"
 
-aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME --profile eks-cluster-admin
+aws eks update-kubeconfig --region us-east-1 --name $CLUSTER_NAME
 
 # install helm 
 curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
