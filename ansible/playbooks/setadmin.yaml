@@ -16,6 +16,21 @@
              | regex_replace('arn:aws:sts::([0-9]+):assumed-role/([^/]+)/.*',
                              'arn:aws:iam::\1:role/\2') }}
 
+    - name: Get instance role ARN from IMDS
+      shell: |
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws sts get-caller-identity --query Arn --output text
+      register: instance_caller_arn
+
+    - name: Derive instance IAM role ARN
+      set_fact:
+        instance_role_arn: >-
+          {{ instance_caller_arn.stdout
+             | regex_replace('arn:aws:sts::([0-9]+):assumed-role/([^/]+)/.*',
+                             'arn:aws:iam::\1:role/\2') }}
+
     - name: Check current cluster authentication mode
       shell: |
         env -u AWS_PROFILE \
@@ -52,6 +67,39 @@
       until: cluster_status.stdout | trim == "ACTIVE"
       retries: 20
       delay: 15
+
+    - name: Check if instance role access entry already exists
+      shell: |
+        aws eks describe-access-entry \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ instance_role_arn }}" \
+          --region us-east-1 2>&1
+      environment:
+        AWS_PROFILE: doggy-admin
+      register: instance_entry_check
+      failed_when: false
+
+    - name: Create EKS access entry for instance role
+      shell: |
+        aws eks create-access-entry \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ instance_role_arn }}" \
+          --region us-east-1
+      environment:
+        AWS_PROFILE: doggy-admin
+      when: instance_entry_check.rc != 0
+
+    - name: Associate cluster admin policy to instance role
+      shell: |
+        aws eks associate-access-policy \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ instance_role_arn }}" \
+          --access-scope type=cluster \
+          --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+          --region us-east-1
+      environment:
+        AWS_PROFILE: doggy-admin
+      when: instance_entry_check.rc != 0
 
     - name: Update kubeconfig using instance profile
       shell: |
