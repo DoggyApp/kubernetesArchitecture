@@ -8,9 +8,10 @@ metadata:
     app.kubernetes.io/component: controller
 data:
   allow-snippet-annotations: "true"
-  # Redirect HTTP → HTTPS. Works with NLB TLS termination because the NLB sets
-  # X-Forwarded-Proto: https on port-443 traffic, so NGINX only redirects
-  # requests that genuinely arrived on port 80.
-  ssl-redirect: "true"
+  # NLB is a Layer 4 load balancer and does not set X-Forwarded-Proto, so
+  # ssl-redirect would cause an infinite redirect loop. TLS is terminated at
+  # the NLB using the ACM cert — the browser sees https:// without NGINX
+  # needing to redirect.
+  ssl-redirect: "false"
   use-forwarded-headers: "true"
   compute-full-forwarded-for: "true"
