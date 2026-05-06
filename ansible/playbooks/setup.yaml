@@ -1,8 +1,10 @@
 ---
-- name: Install and configure GitLab 
+- name: Install and configure GitLab
   hosts: localhost
   connection: local
   gather_facts: False
+  environment:
+    AWS_PROFILE: doggy-admin
   vars_prompt:
   - name: aws_id
     prompt: "We need your AWS ID to set up the pipeline, it won't go anywhere"
@@ -485,6 +487,8 @@
   hosts: localhost
   connection: local
   gather_facts: False
+  environment:
+    AWS_PROFILE: doggy-admin
   vars_prompt:
     - name: email
       prompt: "We need your email to set up the SNS service, it won't go anywhere"
