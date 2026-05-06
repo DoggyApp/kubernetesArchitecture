@@ -18,40 +18,37 @@
 
     - name: Check current cluster authentication mode
       shell: |
-        aws eks describe-cluster \
-          --name doggy-app-eks-cluster-0 \
-          --region us-east-1 \
-          --query "cluster.accessConfig.authenticationMode" \
-          --output text
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks describe-cluster \
+            --name doggy-app-eks-cluster-0 \
+            --region us-east-1 \
+            --query "cluster.accessConfig.authenticationMode" \
+            --output text
       register: current_auth_mode
 
     - name: Enable API_AND_CONFIG_MAP authentication mode on cluster
       shell: |
-        aws eks update-cluster-config \
-          --name doggy-app-eks-cluster-0 \
-          --region us-east-1 \
-          --access-config authenticationMode=API_AND_CONFIG_MAP
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks update-cluster-config \
+            --name doggy-app-eks-cluster-0 \
+            --region us-east-1 \
+            --access-config authenticationMode=API_AND_CONFIG_MAP
       when: current_auth_mode.stdout | trim != 'API_AND_CONFIG_MAP'
 
     - name: Wait for cluster config update to complete
       shell: |
-        aws eks describe-cluster \
-          --name doggy-app-eks-cluster-0 \
-          --region us-east-1 \
-          --query "cluster.status" \
-          --output text
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks describe-cluster \
+            --name doggy-app-eks-cluster-0 \
+            --region us-east-1 \
+            --query "cluster.status" \
+            --output text
       register: cluster_status
       until: cluster_status.stdout | trim == "ACTIVE"
       retries: 20
@@ -60,41 +57,38 @@
 
     - name: Check if access entry already exists
       shell: |
-        aws eks describe-access-entry \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --region us-east-1 2>&1
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks describe-access-entry \
+            --cluster-name doggy-app-eks-cluster-0 \
+            --principal-arn "{{ doggy_role_arn }}" \
+            --region us-east-1 2>&1
       register: existing_entry
       failed_when: false
 
     - name: Create EKS access entry for doggy-admin
       shell: |
-        aws eks create-access-entry \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --region us-east-1
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks create-access-entry \
+            --cluster-name doggy-app-eks-cluster-0 \
+            --principal-arn "{{ doggy_role_arn }}" \
+            --region us-east-1
       when: existing_entry.rc != 0
 
     - name: Associate cluster admin policy to doggy-admin
       shell: |
-        aws eks associate-access-policy \
-          --cluster-name doggy-app-eks-cluster-0 \
-          --principal-arn "{{ doggy_role_arn }}" \
-          --access-scope type=cluster \
-          --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-          --region us-east-1
-      environment:
-        AWS_PROFILE: default
-        AWS_CONFIG_FILE: /dev/null
-        AWS_SHARED_CREDENTIALS_FILE: /dev/null
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          aws eks associate-access-policy \
+            --cluster-name doggy-app-eks-cluster-0 \
+            --principal-arn "{{ doggy_role_arn }}" \
+            --access-scope type=cluster \
+            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+            --region us-east-1
       when: existing_entry.rc != 0
 
     - name: Update kubeconfig for doggy-admin
