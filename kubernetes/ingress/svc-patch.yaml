@@ -18,7 +18,7 @@ spec:
       protocol: TCP
     - name: https # needs to have a name to work
       port: 443
-      targetPort: 443
+      targetPort: 80  # NLB terminates TLS; forward decrypted traffic to NGINX's HTTP port
       protocol: TCP
   selector:
     app.kubernetes.io/name: ingress-nginx

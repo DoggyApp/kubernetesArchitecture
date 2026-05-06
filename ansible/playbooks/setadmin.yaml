@@ -150,6 +150,24 @@
           AWS_SHARED_CREDENTIALS_FILE=/dev/null \
           python3 /tmp/patch-aws-auth.py "{{ doggy_role_arn }}"
 
+    - name: Verify doggy-admin is in aws-auth
+      shell: |
+        env -u AWS_PROFILE \
+          AWS_CONFIG_FILE=/dev/null \
+          AWS_SHARED_CREDENTIALS_FILE=/dev/null \
+          kubectl get configmap aws-auth -n kube-system -o jsonpath='{.data.mapRoles}'
+      register: aws_auth_contents
+
+    - name: Remove instance role access entry
+      shell: |
+        aws eks delete-access-entry \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ instance_role_arn }}" \
+          --region us-east-1
+      environment:
+        AWS_PROFILE: doggy-admin
+      when: doggy_role_arn in aws_auth_contents.stdout
+
     - name: Update kubeconfig for doggy-admin
       shell: aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0
       environment:
