@@ -1,0 +1,85 @@
+---
+- name: Grant doggy-admin SSO role EKS cluster access
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  environment:
+    AWS_PROFILE: ""
+
+  tasks:
+    - name: Get doggy-admin caller ARN
+      shell: aws sts get-caller-identity --profile doggy-admin --query Arn --output text
+      register: doggy_caller_arn
+
+    - name: Derive doggy-admin IAM role ARN
+      set_fact:
+        doggy_role_arn: >-
+          {{ doggy_caller_arn.stdout
+             | regex_replace('arn:aws:sts::([0-9]+):assumed-role/([^/]+)/.*',
+                             'arn:aws:iam::\1:role/\2') }}
+
+    - name: Check current cluster authentication mode
+      shell: |
+        aws eks describe-cluster \
+          --name doggy-app-eks-cluster-0 \
+          --region us-east-1 \
+          --query "cluster.accessConfig.authenticationMode" \
+          --output text
+      register: current_auth_mode
+
+    - name: Enable API authentication mode on cluster
+      shell: |
+        aws eks update-cluster-config \
+          --name doggy-app-eks-cluster-0 \
+          --region us-east-1 \
+          --access-config authenticationMode=API_AND_CONFIG_MAP
+      when: current_auth_mode.stdout | trim != 'API_AND_CONFIG_MAP'
+
+    - name: Wait for cluster config update to complete
+      shell: |
+        aws eks describe-cluster \
+          --name doggy-app-eks-cluster-0 \
+          --region us-east-1 \
+          --query "cluster.status" \
+          --output text
+      register: cluster_status
+      until: cluster_status.stdout | trim == "ACTIVE"
+      retries: 20
+      delay: 15
+      when: current_auth_mode.stdout | trim != 'API_AND_CONFIG_MAP'
+
+    - name: Check if access entry already exists
+      shell: |
+        aws eks describe-access-entry \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ doggy_role_arn }}" \
+          --region us-east-1 2>&1
+      register: existing_entry
+      failed_when: false
+
+    - name: Create EKS access entry for doggy-admin
+      shell: |
+        aws eks create-access-entry \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ doggy_role_arn }}" \
+          --region us-east-1
+      when: existing_entry.rc != 0
+
+    - name: Associate cluster admin policy to doggy-admin
+      shell: |
+        aws eks associate-access-policy \
+          --cluster-name doggy-app-eks-cluster-0 \
+          --principal-arn "{{ doggy_role_arn }}" \
+          --access-scope type=cluster \
+          --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+          --region us-east-1
+      when: existing_entry.rc != 0
+
+    - name: Update kubeconfig for doggy-admin
+      shell: aws eks update-kubeconfig --region us-east-1 --name doggy-app-eks-cluster-0
+      environment:
+        AWS_PROFILE: doggy-admin
+
+    - name: Confirm access entry
+      debug:
+        msg: "doggy-admin role '{{ doggy_role_arn }}' now has AmazonEKSClusterAdminPolicy on the cluster"
