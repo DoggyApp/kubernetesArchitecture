@@ -35,7 +35,47 @@
         state: absent
         kind: Namespace
         name: ingress-nginx
-      ignore_errors: true  
+      ignore_errors: true
+
+    - name: Delete and wait for AWS Load Balancer to be fully deprovisioned
+      shell: |
+        ARNS=$(aws elbv2 describe-load-balancers --region {{ region }} \
+          --query "LoadBalancers[*].LoadBalancerArn" --output text 2>/dev/null)
+        if [ -z "$ARNS" ]; then
+          echo "No load balancers found."
+          exit 0
+        fi
+        CLUSTER_LBS=$(aws elbv2 describe-tags \
+          --resource-arns $ARNS \
+          --region {{ region }} \
+          --query "TagDescriptions[?Tags[?Key=='kubernetes.io/cluster/{{ cluster_name }}']].ResourceArn" \
+          --output text 2>/dev/null)
+        if [ -z "$CLUSTER_LBS" ]; then
+          echo "No load balancers found for cluster {{ cluster_name }}."
+          exit 0
+        fi
+        for ARN in $CLUSTER_LBS; do
+          echo "Deleting load balancer: $ARN"
+          aws elbv2 delete-load-balancer --load-balancer-arn "$ARN" --region {{ region }}
+        done
+        echo "Waiting for deletion to complete..."
+        for i in $(seq 1 24); do
+          REMAINING=$(aws elbv2 describe-tags \
+            --resource-arns $CLUSTER_LBS \
+            --region {{ region }} \
+            --query "TagDescriptions[?Tags[?Key=='kubernetes.io/cluster/{{ cluster_name }}']].ResourceArn" \
+            --output text 2>/dev/null)
+          if [ -z "$REMAINING" ]; then
+            echo "Load balancer fully deleted."
+            exit 0
+          fi
+          echo "Still deleting... attempt $i/24"
+          sleep 10
+        done
+        echo "WARNING: Timed out waiting for load balancer deletion. Proceeding anyway."
+      environment:
+        AWS_DEFAULT_REGION: "{{ region }}"
+      ignore_errors: true
 
     - name: Uninstall Promtail stack
       kubernetes.core.helm:
@@ -151,13 +191,6 @@
       kubernetes.core.k8s:
         state: absent
         src: "{{ arch_dir }}/default/services.yaml"
-
-    - name: Delete ingress-nginx namespace
-      kubernetes.core.k8s:
-        api_version: v1
-        kind: Namespace
-        name: ingress-nginx
-        state: absent
 
     - name: Delete monitoring namespace
       kubernetes.core.k8s:
