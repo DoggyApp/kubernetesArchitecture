@@ -326,8 +326,8 @@ spec:
     - metadata:
         name: postgres-data
       spec:
-        accessModes: ["ReadWriteOnce"]
-        storageClassName: gp2
+        accessModes: ["ReadWriteMany"]
+        storageClassName: efs-sc
         resources:
           requests:
             storage: 10Gi

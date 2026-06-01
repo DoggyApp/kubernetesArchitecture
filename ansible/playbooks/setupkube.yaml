@@ -63,6 +63,35 @@
               --output text | sed 's|https://||'
           register: oidc_url
 
+        - name: Get EKS cluster VPC and security group configuration
+          shell: |
+            aws eks describe-cluster \
+              --name {{ cluster_name }} \
+              --region {{ region }} \
+              --query "cluster.resourcesVpcConfig" \
+              --output json
+          register: eks_vpc_config_raw
+
+        - name: Set VPC facts
+          set_fact:
+            eks_vpc_id: "{{ (eks_vpc_config_raw.stdout | from_json).vpcId }}"
+            eks_cluster_sg: "{{ (eks_vpc_config_raw.stdout | from_json).clusterSecurityGroupId }}"
+            eks_subnet_ids: "{{ (eks_vpc_config_raw.stdout | from_json).subnetIds }}"
+
+        - name: Get subnet AZ mapping
+          shell: |
+            aws ec2 describe-subnets \
+              --subnet-ids {{ eks_subnet_ids | join(' ') }} \
+              --region {{ region }} \
+              --query "Subnets[*].{Id:SubnetId,AZ:AvailabilityZone}" \
+              --output json
+          register: subnet_az_raw
+
+        - name: Extract one subnet per AZ
+          set_fact:
+            subnet_1a: "{{ (subnet_az_raw.stdout | from_json) | selectattr('AZ', 'equalto', region + 'a') | map(attribute='Id') | first }}"
+            subnet_1b: "{{ (subnet_az_raw.stdout | from_json) | selectattr('AZ', 'equalto', region + 'b') | map(attribute='Id') | first }}"
+
         - name: Create ingress namespace
           kubernetes.core.k8s:
             name: ingress-nginx
@@ -105,9 +134,9 @@
           environment:
             EMAIL: "{{ email }}"
 
-        - name: Render the EBS CSI role YAML
+        - name: Render the EFS CSI role YAML
           shell: |
-            envsubst < "{{ arch_dir }}/default/cf-ebs-csi-role.yaml" > "{{ config_dir }}/cf-ebs-csi-role-up.yaml"
+            envsubst < "{{ arch_dir }}/default/cf-efs-csi-role.yaml" > "{{ config_dir }}/cf-efs-csi-role-up.yaml"
           environment:
             OIDC_URL: "{{ oidc_url.stdout }}"
             AWS_ID: "{{ aws_id }}"
@@ -151,20 +180,20 @@
           set_fact:
             sns_stack_job_id: "{{ deploying_sns_stack.ansible_job_id | default('') }}"
 
-        - name: Deploy EBS CSI driver IAM role with CloudFormation
+        - name: Deploy EFS CSI driver IAM role with CloudFormation
           amazon.aws.cloudformation:
-            stack_name: ebs-csi-driver-iam-role
-            template_body: "{{ lookup('file', config_dir + '/cf-ebs-csi-role-up.yaml') }}"
+            stack_name: efs-csi-driver-iam-role
+            template_body: "{{ lookup('file', config_dir + '/cf-efs-csi-role-up.yaml') }}"
             state: present
             capabilities:
               - CAPABILITY_NAMED_IAM
-          register: deploying_ebs_csi_stack
+          register: deploying_efs_csi_stack
           async: 300
           poll: 0
 
-        - name: Set EBS CSI stack job ID if async used
+        - name: Set EFS CSI stack job ID if async used
           set_fact:
-            ebs_csi_stack_job_id: "{{ deploying_ebs_csi_stack.ansible_job_id | default('') }}"
+            efs_csi_stack_job_id: "{{ deploying_efs_csi_stack.ansible_job_id | default('') }}"
 
 
 ##########################################################
@@ -389,60 +418,69 @@
                 POSTGRES_PASSWORD: "{{ postgres_password.stdout }}"
                 DB_URL: jdbc:postgresql://postgres-service:5432/doggyapp
 
-        - name: Wait for EBS CSI driver IAM role stack to be deployed
+        - name: Wait for EFS CSI driver IAM role stack to be deployed
           async_status:
-            jid: "{{ ebs_csi_stack_job_id }}"
-          register: deploying_ebs_csi_stack_status
-          until: deploying_ebs_csi_stack_status.finished
+            jid: "{{ efs_csi_stack_job_id }}"
+          register: deploying_efs_csi_stack_status
+          until: deploying_efs_csi_stack_status.finished
           retries: 60
           delay: 5
-          when: ebs_csi_stack_job_id != ''
+          when: efs_csi_stack_job_id != ''
 
-        - name: Get EBS CSI driver role ARN
+        - name: Get EFS CSI driver role ARN
           amazon.aws.cloudformation_info:
-            stack_name: ebs-csi-driver-iam-role
-          register: ebs_csi_stack_info
+            stack_name: efs-csi-driver-iam-role
+          register: efs_csi_stack_info
 
-        - name: Set EBS CSI role ARN fact
+        - name: Set EFS CSI role ARN fact
           set_fact:
-            ebs_csi_role_arn: "{{ ebs_csi_stack_info.cloudformation['ebs-csi-driver-iam-role'].stack_outputs.EbsCsiDriverRoleArn }}"
+            efs_csi_role_arn: "{{ efs_csi_stack_info.cloudformation['efs-csi-driver-iam-role'].stack_outputs.EfsCsiDriverRoleArn }}"
 
-        - name: Install EBS CSI driver addon
+        - name: Install EFS CSI driver addon
           shell: |
             aws eks create-addon \
               --cluster-name {{ cluster_name }} \
-              --addon-name aws-ebs-csi-driver \
-              --service-account-role-arn {{ ebs_csi_role_arn }} \
+              --addon-name aws-efs-csi-driver \
+              --service-account-role-arn {{ efs_csi_role_arn }} \
               --region {{ region }} 2>&1 | grep -v "already exists" || true
 
-        - name: Wait for EBS CSI driver addon to be active
+        - name: Wait for EFS CSI driver addon to be active
           shell: |
             aws eks describe-addon \
               --cluster-name {{ cluster_name }} \
-              --addon-name aws-ebs-csi-driver \
+              --addon-name aws-efs-csi-driver \
               --region {{ region }} \
               --query "addon.status" \
               --output text
-          register: ebs_csi_addon_status
-          until: ebs_csi_addon_status.stdout | trim == "ACTIVE"
+          register: efs_csi_addon_status
+          until: efs_csi_addon_status.stdout | trim == "ACTIVE"
           retries: 30
           delay: 10
 
-        - name: Create CSI-backed gp2 storage class
+        - name: Get EFS filesystem ID from master CloudFormation stack
+          shell: |
+            aws cloudformation describe-stacks \
+              --stack-name doggy-stack \
+              --region {{ region }} \
+              --query "Stacks[0].Outputs[?OutputKey=='EfsFileSystemId'].OutputValue" \
+              --output text
+          register: efs_filesystem_id_raw
+
+        - name: Create EFS StorageClass
           kubernetes.core.k8s:
             state: present
             definition:
               apiVersion: storage.k8s.io/v1
               kind: StorageClass
               metadata:
-                name: gp2
-                annotations:
-                  storageclass.kubernetes.io/is-default-class: "true"
-              provisioner: ebs.csi.aws.com
-              volumeBindingMode: WaitForFirstConsumer
-              reclaimPolicy: Delete
+                name: efs-sc
+              provisioner: efs.csi.aws.com
               parameters:
-                type: gp2
+                provisioningMode: efs-ap
+                fileSystemId: "{{ efs_filesystem_id_raw.stdout | trim }}"
+                directoryPerms: "700"
+                uid: "999"
+                gid: "999"
 
         - name: Deploy postgres
           kubernetes.core.k8s:

@@ -1,11 +1,11 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: IAM role for the AWS EBS CSI driver (IRSA)
+Description: IAM role for the AWS EFS CSI driver (IRSA)
 
 Resources:
-  EbsCsiDriverRole:
+  EfsCsiDriverRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: ebs-csi-driver-role-doggyapp
+      RoleName: efs-csi-driver-role-doggyapp
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
         Statement:
@@ -15,13 +15,13 @@ Resources:
             Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
-                "${OIDC_URL}:sub": "system:serviceaccount:kube-system:ebs-csi-controller-sa"
+                "${OIDC_URL}:sub": "system:serviceaccount:kube-system:efs-csi-controller-sa"
                 "${OIDC_URL}:aud": "sts.amazonaws.com"
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy
+        - arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy
 
 Outputs:
-  EbsCsiDriverRoleArn:
-    Value: !GetAtt EbsCsiDriverRole.Arn
+  EfsCsiDriverRoleArn:
+    Value: !GetAtt EfsCsiDriverRole.Arn
     Export:
-      Name: EbsCsiDriverRoleArn
+      Name: EfsCsiDriverRoleArn
