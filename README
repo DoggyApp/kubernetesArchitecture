@@ -1,48 +1,94 @@
-This project provides an infrastructure-as-code solution for deploying a full stack application with a rubust monitoring suit to Amazon EKS. The setup includes metric collection and alerting with Pormetheus and log scraping, aggregation and alterting with Promtail and Loki. Grafana is used to visualize this data, and OpenAI is intergated into the alerting pipeline to provide rich alaysis. 
+This project provides an infrastructure-as-code solution for deploying a full stack application with a robust monitoring suit and GitLab pipeline to Amazon EKS. The 
+setup includes metric collection and alerting with Pormetheus; log scraping, aggregation and alterting with Promtail and Loki; Grafana is used to visualize this data;
+OpenAI is intergated into the alerting pipeline to provide rich alaysis, and GitLab is used to create a pipeline for the testing, building and deploying of the app. 
 
-🛠️ Features
+##🛠️ Features
 
-    🧠 Automated the deployment of a robust monitoring suit to AWS EKS with a single ansible script. 
+- 🧠 **One-command deployment** — a single Ansible playbook automates the full cluster setup, including IAM roles, Helm charts, Kubernetes resources, and DNS.
+- 📜 **Log-based alerting** — Promtail scrapes container logs and Loki fires alerts whenever `ERROR` appears in any microservice or the Angular frontend.
+- 📊 **Kube-Prometheus-Stack** — out-of-the-box dashboards, alert rules, and metric scraping for the entire cluster.
+- 📈 **Dual autoscaling** — Horizontal Pod Autoscaler (HPA) for pods and Cluster Autoscaler for nodes (min: 0, desired: 1, max: 3).
+- 🌐 **NGINX Ingress + NLB** — public internet access via a Network Load Balancer, with path rewrites, rate limiting, and client-side routing support for the Angular SPA.
+- 🗄️ **Persistent PostgreSQL** — StatefulSet backed by Amazon EFS via the EFS CSI driver, survives pod restarts and node replacements.
+- 🤖 **AI-enriched alerts** — the alert-analyzer pod receives Prometheus Alertmanager webhooks, fetches the surrounding logs from Loki, and asks OpenAI GPT-4o-mini to diagnose the problem before forwarding the analysis via AWS SNS.
+- 📨 **AWS SNS delivery** — enriched alert emails delivered to any confirmed subscriber.
+- 🦊 **GitLab CE pipeline** — self-hosted GitLab CE on EC2, with a GitLab Agent (agentk) and GitLab Runner deployed directly into the EKS cluster for in-cluster builds and deployments.
+- 💥 **Full teardown** — a second Ansible playbook removes every Kubernetes resource, Helm release, CloudFormation stack, IAM role, and SNS subscription cleanly.
 
-    📜 Scrapes logs from deployed application and alerts when an "ERROR" appears. 
+##🧱 Architecture
 
-    📊 Uses Kube-Prometheus-Stack for standard alerts, dashboads and metric scraping. 
+### Application (default namespace)
 
-    📈 Ability to autoscale nodes as well a pods. 
+| Workload | Description |
+|---|---|
+| `webapp` | Angular SPA served by NGINX |
+| `owner-service` | Spring Boot microservice — dog owner management (port 8081) |
+| `user-service` | Spring Boot microservice — user/staff management (port 8082) |
+| `org-service` | Spring Boot microservice — organization management (port 8083) |
+| `postgres` | PostgreSQL 16 StatefulSet, persisted to EFS (10 Gi) |
 
-    🌐 Features an Ingress controller and loadbalancer for public internet access, and proper routing even at scale. 
+The Angular frontend routes API calls through the Ingress:
+- `/api/owner/**` → rewrites to `/owner/**` on `owner-service`
+- `/api/user/**` → rewrites to `/user/**` on `user-service`
+- `/api/org/**` → rewrites to `/organization/**` on `org-service`
+- All other paths → served by `webapp` (SPA fallback to `index.html`)
 
-    🤖 Intergrates OpenIA into the alerting pipeline for rich analysis 
+### Monitoring (monitoring namespace)
 
-    📨 Sends enriched alterts via AWS SNS. 
+| Workload | Description |
+|---|---|
+| Kube-Prometheus-Stack | Prometheus scraper, Alertmanager, Prometheus Gateway, Grafana |
+| Loki (monolithic) | Log aggregation and alert rule evaluation |
+| Promtail | DaemonSet co-located with the application node; scrapes container logs |
+| alert-analyzer | Custom Flask/Gunicorn pod — receives Alertmanager webhooks, queries Loki, enriches alerts with OpenAI, publishes to SNS |
 
-    💻 Ingress configured for client side routing. 
+**Alert flow:**
+1. A log line matching `ERROR` appears in any microservice or the frontend.
+2. Loki evaluates the alert rule (5-minute window) and fires after 1 minute of sustained matches.
+3. Alertmanager forwards the webhook to `alert-analyzer`.
+4. `alert-analyzer` queries Loki for the surrounding log context (±3 minutes, up to 70 lines).
+5. GPT-4o-mini analyzes the alert name, severity, pod, and logs.
+6. The AI response is published to the SNS topic `doggy-alerts` and delivered by email.
 
-    💥 Teardown script enables easy removable of the application and all dependencies, and AWS infrastructure in a single ansible script. 
+### GitLab (gitlab namespace)
 
-🧱 Architecture
+| Component | Description |
+|---|---|
+| GitLab CE | Self-hosted on the management EC2 instance, fronted by an ALB |
+| doggy-agent (agentk) | GitLab Kubernetes Agent — connects the cluster to GitLab |
+| gitlab-runner | Helm-installed runner in the cluster; builds and deploys via ECR and `kubectl` |
 
-    Default Namespace 
+GitLab projects created automatically:
+- `doggyapp/frontend`
+- `doggyapp/owner-service`
+- `doggyapp/user-service`
+- `doggyapp/org-service`
+- `doggyapp/pipeline-config` (holds the agent configuration)
 
-        Webapp and registry pods, the full stack application. 
+### System (kube-system namespace)
 
-    Monitoring Namespace 
+| Workload | Description |
+|---|---|
+| Cluster Autoscaler | Scales nodes between 0 and 3; uses IRSA for EC2 Auto Scaling permissions |
+| EFS CSI Driver (addon) | Provides the `efs-sc` StorageClass for PostgreSQL persistent storage |
 
-        Loki deployed in a monolithic architecture. 
+### AWS Infrastructure (CloudFormation stacks)
 
-        Promtail scraper deployed on the same node as the full stack application collecting container logs. 
+| Stack | Purpose |
+|---|---|
+| `doggy-stack` | Base VPC, EKS cluster, node groups, EFS filesystem, GitLab ALB (deployed from CloudFormationArchitecture) |
+| `cluster-autoscaler-iam-role` | IRSA role for the Cluster Autoscaler |
+| `efs-csi-driver-iam-role` | IRSA role for the EFS CSI driver addon |
+| `alert-hook-iam-role` | IRSA role granting the alert-analyzer pod access to Secrets Manager and SNS |
+| `gitlab-runner-iam-role` | IRSA role granting the GitLab Runner access to ECR and EKS |
+| `sns-doggy` | SNS topic `doggy-alerts` and email subscription |
+| `doggy-dns-tls` | Route 53 A record aliasing `doggyapp.click` to the NLB |
 
-        Prometheus stack, including pods for scraping metrics, alert management, and gateway, as well as app componenets. 
+---
 
-        Alert analyzer, the pod dediceted to recieving alerts from prometheus alert manager, enriching them through OpenAI and then forwarding that to AWS SNS. 
+##🚀 Deployment
 
-    System namespace 
-
-        Node Autoscaler provided with IAM permissions to perform the tasks of scaling up and down node in accordance to their need. (Minimum : 0, Desired : 1, Maximum : 3)
-
-🚀 Deployment
-
-    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Also ensure that you have your AWS profile properly configured on your personal computer, meaning the access key and secret key of the user that deployed the cluster, and with proper permissions for SSM and all needed tasks. 
+    Ensure you have the doggy EKS stack deployed from here https://github.com/DoggyApp/CloudFormationArchitecture.git to region us-east-1. Ensure that you have a user with all the necessary priviledges created in AWS IAM Identity Center. 
 
         # go to your EC2 page in AWS and find the mgmt instance you just deployed, make sure it is running and then note the instance ID. (You might want to wait 20 min, the start up script installs Python10, which is needed to run the latest version of ansible, this takes a long while, so even if you log into the session once the instance appears it will still take a good while longer to spin up the environment. A good way to check that it is done is to wait for an email from AWS SNS with a confirmation to subscribe to "doggy-alerts" this is after the heavy lifting in the script). 
         # from your terminal run, 
@@ -56,18 +102,36 @@ This project provides an infrastructure-as-code solution for deploying a full st
         # in the start up script for this instance we set the .bashrc file to acces the py-10 virtual environment log in with 
 
         sudo su - ec2-user 
+
+        # you will be prompted to login to your user in IAM Identity Center. This can be configured with multifactor autherntication and to time out making it more secure than access keys which can be stolen. 
         
         # and  make sure that this is your tag in the command line is "(py10-ansible-env) [ec2-user@ip-10-98-25-84 ~]$" 
         # we also git cloned this very project into the instance under /home/ec-user, make sure that it is there
 
         cd kubernetesArchitecture 
 
+        # on the first start up you will need to set your current user into RBAC this can be done with the preregistered command...
+
+        setadmin 
+
+        # next you will set up the gitlab pipeline with the pregegistered command... 
+
+        setupgit 
+
+        # finally you will set up the monitoring suit with the preregistered command 
+
+        setupkube
+
         # The start up script should have automatically deployed the environment, 
+        # Confirm that the script ran completely it will produce a file called environment-info.txt with values for the gitlab ALB, temp password for GitLab, DNS name for the  application, ect. 
+        # visit the gitlab alb in the browser, log in and create the webhooks between the pipeline and your local repository (it should be as simple as creating an API Key and using the command 
+        # git remote --add -push origin https://<APIkey>@<URL> or something close to that.) Push to deploy the pipeline. 
+
         # confirm that the project is running 
 
         kubectl get pods 
 
-        # you should see "registry" and "webapp". 
+        # you should see the microservices and frontend pods, as well as the postgres pod. 
 
         kubectl get pods -n monitoring 
 
@@ -81,9 +145,9 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         kubectl get ingress 
 
-        # copy the URL into your browser, you should see 2 buttons "test" and "trigger backend error" you should recieve a response that says "working" when you click on "test" this means that the frontend is able to call the backend, and you should recieve an email enriched with AI analysis when you click on "trigger backend error". (assuming that you have confimed the subscirption to doggy-alerts!)
+        # copy the URL into your browser, it should be "doggyapp.click" as this is the purchased domain that I am using. 
 
-        # you can also test that the clint side routing is working by typing in the browser "http://amazon-url/dev-server" dev-server being a common url that bots scraping the internet will attempt to access sensitive files, it should lead to a "/not-found" page.
+        # you can also test that the client side routing is working by typing in the browser "https://doggy-app.click/dev-server" dev-server being a common url that bots scraping the internet will attempt to access sensitive files, it should lead to a "/not-found" page.
         
         # Ensure that Grafana is running 
         # This is the command to get the password to log into the UI (it should be "prom-operator")
@@ -106,31 +170,61 @@ This project provides an infrastructure-as-code solution for deploying a full st
 
         teardown 
 
+This alias runs `teardown.yaml`, which:
+- Deletes the Ingress and waits for the AWS NLB to be fully deprovisioned before proceeding.
+- Uninstalls all Helm releases (Promtail, Loki, Prometheus, Cluster Autoscaler, GitLab Agent, GitLab Runner).
+- Deletes the `monitoring`, `gitlab`, and `ingress-nginx` namespaces.
+- Deletes all CloudFormation stacks (autoscaler IAM role, EFS CSI role, alert hook role, GitLab runner role, SNS topic, DNS/TLS stack).
+- Unsubscribes all confirmed SNS subscriptions before deleting the topic.
+- Removes GitLab secrets from Secrets Manager.
+- Deletes all images from Elastic Container Registry 
+
         # go to CloudFormation in the AWS console and delete the doggy-stack from the base stack. And it will clear all traces of the application from your AWS, inclusing subsciptions to SNS topics. 
 
-🛠️ Troubleshooting 
+##🛠️ Troubleshooting 
 
     In the bashrc. is a functions to access the ansible setup script for the appplication. The command is... "setup". If the application is not running you can run this script indepotently and read the error logs. I have attached the -vvv flag which makes them verbose. 
 
     also, if you cat \vars\log\user-data.log you will find a file with the output from the start up script. This will likely direct you to the problem. 
 
-🛡️ Security 
+##🛡️ Security 
 
-    🔐 NGINX Ingress Controller has the shell in noLogin. 
+- 🔐 NGINX runs with `shell: /sbin/nologin` — the process cannot spawn a shell.
+- 🔐 NGINX Ingress terminates TLS at the controller; traffic inside the cluster is unencrypted.
+- 🔐 NGINX files and directories are owned by `root`.
+- 🔐 Ingress rate limits: 5 concurrent connections, 120 requests per minute, burst multiplier of 3.
+- 🔐 Client-side routing returns `/not-found` for unrecognised paths (e.g. `/dev-server`, `/wp-admin`), preventing accidental information disclosure to scanners.
+- 🔐 Grafana is not exposed through the Ingress. It is only reachable via `kubectl port-forward` inside an authenticated SSM session.
+- 🔐 Secrets (OpenAI key, PostgreSQL password, GitLab tokens) are stored in AWS Secrets Manager and injected at runtime via IRSA — no secrets are baked into container images or Kubernetes manifests.
+- 🔐 All IAM roles use IRSA (IAM Roles for Service Accounts) with scoped trust policies. No node-level IAM permissions are used.
+- 🔐 Application images use minimal base images (distroless/slim variants) pinned to `latest` to pull the most recent security patches.
+- ⚠️ **Known gap:** Kubernetes network policies are not yet configured. Pods in the `default` namespace can reach services in `monitoring` via cluster DNS. DNS restrictions or `NetworkPolicy` resources should be added to prevent publicly accessible pods from making arbitrary in-cluster API calls.
 
-    🔐 NGINX Ingress Controller has TLS configured to terminate in the controller. (though traffic inside the cluster is unencrypted). 
+---
 
-    🔐 NGINX files and directories are owned by root. 
+## 📂 Repository Layout
 
-    🔐 Ingress config has rate limits to deter scanners. 
-
-    🔐 Client side routing configured to returned 404 not-found for bad urls such as "development-server".  
-    
-    🔐 Grafan is not exposed by the ingress controller, and is only accessible through port forwarding with an SSM session, or from within the cluster. 
-
-    🔐 Images used on Angular and Springboot pods are the recommended. They're minmal to prevent suface area for exploitation, and set to latest for the most patched image. 
-
-    ⚠️ WARNING: There need to be restrictions placed on the the Kubernetes DNS so that API calls across namespaces cannot be made from the publicly accessible pods. 
-
-
-
+```
+kubernetesArchitecture/
+├── alerting-app/               # Alert-analyzer Flask app (Dockerfile + prometheus-webhook.py)
+├── ansible/
+│   ├── ansible.cfg
+│   ├── inventory/hosts.yaml
+│   └── playbooks/
+│       ├── setupkube.yaml      # Main cluster deployment playbook
+│       ├── setupgit.yaml       # GitLab CE + pipeline setup playbook
+│       ├── setadmin.yaml       # AWS profile configuration helper
+│       └── teardown.yaml       # Full teardown playbook
+├── gitlab/
+│   ├── pipeline-config/        # GitLab Agent config.yaml
+│   └── runner/runner-role.yaml # CloudFormation: GitLab Runner IAM role
+└── kubernetes/
+    ├── autoscaler/             # Cluster Autoscaler Helm values + CloudFormation IAM role
+    ├── default/                # Application pods, services, PostgreSQL StatefulSet, EFS CSI role
+    ├── ingress/                # NGINX Ingress resources, DNS/TLS CloudFormation, kustomization
+    └── monitoring/
+        ├── alerting/           # Alert-analyzer pod, service account, SNS CloudFormation
+        ├── loki/               # Loki Helm values + LogQL alert rules
+        ├── prometheus/         # Prometheus, Alertmanager, Grafana Helm values
+        └── promtail/           # Promtail Helm values
+```
