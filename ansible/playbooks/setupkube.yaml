@@ -545,6 +545,34 @@
 
     - name: Write environment info file to bastion home directory
       block:
+        - name: Fetch GitLab automation token from Secrets Manager
+          shell: |
+            aws secretsmanager get-secret-value \
+              --secret-id gitlab-automation-token-1 \
+              --region us-east-1 \
+              --query SecretString \
+              --output text
+          register: gl_token_raw
+
+        - name: Query GitLab ALB DNS from AWS
+          shell: |
+            aws elbv2 describe-load-balancers \
+              --names doggy-gitlab-alb \
+              --query "LoadBalancers[0].DNSName" \
+              --output text
+          register: gitlab_alb_dns_raw
+
+        - name: Read GitLab initial root password
+          shell: sudo grep 'Password:' /etc/gitlab/initial_root_password | awk '{print $2}'
+          register: gitlab_temp_password_raw
+
+        - name: Set GitLab facts
+          set_fact:
+            gl_token: "{{ gl_token_raw.stdout | trim }}"
+            gl_url: "http://localhost"
+            gitlab_alb_url: "{{ gitlab_alb_dns_raw.stdout | trim }}"
+            gitlab_temp_password: "{{ gitlab_temp_password_raw.stdout | trim }}"
+
         - name: Get Grafana admin password
           shell: |
             kubectl get secret kube-prometheus-stack-grafana \
