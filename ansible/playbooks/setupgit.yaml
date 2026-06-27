@@ -70,6 +70,9 @@
             state: present
           become: true
 
+        - name: Stop gitlab-kas before reconfigure to avoid runit restart timeout
+          shell: sudo gitlab-ctl stop gitlab-kas 2>/dev/null || true
+
         # gitlab-ctl reconfigure reads /etc/gitlab/gitlab.rb and applies the config.
         # It takes 2-5 minutes — this is normal.
         - name: Reconfigure GitLab
