@@ -62,6 +62,14 @@
             state: present
           become: true
 
+        - name: Configure KAS to call GitLab via localhost instead of external ALB
+          lineinfile:
+            path: /etc/gitlab/gitlab.rb
+            regexp: "^gitlab_kas\\['gitlab_address'\\]"
+            line: "gitlab_kas['gitlab_address'] = 'http://localhost'"
+            state: present
+          become: true
+
         # gitlab-ctl reconfigure reads /etc/gitlab/gitlab.rb and applies the config.
         # It takes 2-5 minutes — this is normal.
         - name: Reconfigure GitLab
@@ -265,6 +273,17 @@
               --secret-id gitlab-agent-token \
               --force-delete-without-recovery \
               --region us-east-1 2>/dev/null || true
+
+        - name: Wait for Secrets Manager to finish deleting old agent token
+          shell: |
+            aws secretsmanager describe-secret \
+              --secret-id gitlab-agent-token \
+              --region us-east-1 > /dev/null 2>&1 \
+            && echo "exists" || echo "deleted"
+          register: agent_secret_delete_check
+          until: agent_secret_delete_check.stdout | trim == "deleted"
+          retries: 10
+          delay: 3
 
         - name: Create new agent token
           uri:
