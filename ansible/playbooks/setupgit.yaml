@@ -80,6 +80,9 @@
           async: 600
           poll: 10
 
+        - name: Start gitlab-kas after reconfigure
+          shell: sudo gitlab-ctl start gitlab-kas
+
         - name: Read GitLab initial root password
           shell: sudo grep 'Password:' /etc/gitlab/initial_root_password | awk '{print $2}'
           register: gitlab_initial_password_raw
